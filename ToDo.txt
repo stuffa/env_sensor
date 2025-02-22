@@ -1,0 +1,28 @@
+Add OTA update of code
+
+Improve WiFi connection and MQTT connect
+
+Add OTA updates https://github.com/turfptax/ugit
+
+add BLE security
+
+Expose micropythong version and code version via BLE service
+
+restrict how long BLE runs - conserver batter - 5min after startup
+but waht about BLE BTHome bcasts - maybe we make then a seperate service
+
+Add Alarm (ie send when temp above/below) possibly changing sample rate as well
+
+Add datalogging for when the network is unavaialbe - sent data latter when it is (may require a RTC for time stamps)
+
+Deepsleep - data may be able to be retained by saving the RTC memory (machine.RTC.memory())
+~~~
+import machine
+import ujson
+rtc = machine.RTC()
+d = {1:'one', 2:'two'}  # Example data to save
+rtc.memory(ujson.dumps(d))  # Save in RTC RAM
+
+r = ujson.loads(rtc.memory())  # Restore from RTC RAM
+# r == {2: 'two', 1: 'one'}
+~~~
