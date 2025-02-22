@@ -64,15 +64,18 @@ class BLE_environment():
         self._pressure_char   = aioble.Characteristic(self._sensor_info, bluetooth.UUID(_PRESSURE_ID),   read=True, notify=True)
         
         self._wifi_info = aioble.Service(_WIFI_SETTINGS_UUID)
-        self._name_char    = aioble.Characteristic(self._wifi_info, _WIFI_NAME_ID,   read=True,  write=True,  capture=True, initial=name)
-        self._ssid_char   = aioble.Characteristic(self._wifi_info, _WIFI_SSID_ID,   read=True,  write=True,  capture=True)
-        self._key_char    = aioble.Characteristic(self._wifi_info, _WIFI_KEY_ID,    read=False, write=True,  capture=True)
-        self._status_char = aioble.Characteristic(self._wifi_info, _WIFI_STATUS_ID, read=True,  write=False, capture=False)
-#         self._save_char   = aioble.Characteristic(self._wifi_info, _WIFI_SAVE_ID,   read=False, write=True,  capture=True)
-
-        f = open("config.json", "rt")
-        config = json.load( f )
-        f.close
+        self._name_char   = aioble.Characteristic(self._wifi_info, _WIFI_NAME_ID,   read=True,  write=True,  capture=False)
+        self._ssid_char   = aioble.Characteristic(self._wifi_info, _WIFI_SSID_ID,   read=True,  write=True,  capture=False)
+        self._key_char    = aioble.Characteristic(self._wifi_info, _WIFI_KEY_ID,    read=False, write=True,  capture=False)
+#         self._status_char = aioble.Characteristic(self._wifi_info, _WIFI_STATUS_ID, read=True,  write=False, capture=False)
+        self._save_char   = aioble.Characteristic(self._wifi_info, _WIFI_SAVE_ID,   read=False, write=True,  capture=True)
+        
+        try:
+            with open("config.json", "rt") as f:
+                config = json.load(f)
+        except:
+            config = { 'name': name, 'ssid': '', 'key': '' }
+        
         
         if config["name"]:
             self._name_char.write(config["name"])
@@ -121,20 +124,62 @@ class BLE_environment():
             config["key"]  = self._key
             print("New Config: " + str(config))
             
-            f = open("config.json", "wt")
-            json.dump(config, f)
-            f.close
+            with open("config.json", "wt") as f:
+                json.dump(config, f)
         
+# 
+#     async def key_task(self):
+#         print("Starting key task")
+#         while True:
+#             try:
+#                 connection, data = await self._key_char.written()
+#                 self._key = data.decode("utf-8")
+#                 self._key_char.write("")  # clear the key from ble
+#                 print("Key = " + self._key )
+#                 self.save_settings()
+#                     
+#             except asyncio.TimeoutError:
+#                 continue
+# 
+#             except Exception as err:
+#                 sys.print_exception(err)
+#                 continue
+# 
+# 
+#     async def ssid_task(self):
+#         print("Starting ssid task")
+#         while True:
+#             try:
+#                 connection, data = await self._ssid_char.written()
+#                 self.save_settings()
+#                     
+#             except asyncio.TimeoutError:
+#                 continue
+# 
+#             except Exception as err:
+#                 sys.print_exception(err)
+#                 continue
+# 
+#     async def name_task(self):
+#         print("Starting name task")
+#         while True:
+#             try:
+#                 connection, data = await self._name_char.written()
+#                 self.save_settings()
+#                     
+#             except asyncio.TimeoutError:
+#                 continue
+# 
+#             except Exception as err:
+#                 sys.print_exception(err)
+#                 continue
 
-
-    async def key_task(self):
-        print("Starting key task")
+    async def save_config_task(self):
+        print("Starting save_config task")
         while True:
             try:
-                connection, data = await self._key_char.written(timeout_ms=2_000)
-                self._key = data.decode("utf-8")
-                self._key_char.write("")  # clear the key from ble
-                print("Key = " + self._key )
+                connection, data = await self._save_char.written()
+                self._save_char.write(0)    
                 self.save_settings()
                     
             except asyncio.TimeoutError:
@@ -143,36 +188,6 @@ class BLE_environment():
             except Exception as err:
                 sys.print_exception(err)
                 continue
-
-
-    async def ssid_task(self):
-        print("Starting ssid task")
-        while True:
-            try:
-                connection, data = await self._ssid_char.written(timeout_ms=2_000)
-                self.save_settings()
-                    
-            except asyncio.TimeoutError:
-                continue
-
-            except Exception as err:
-                sys.print_exception(err)
-                continue
-
-    async def name_task(self):
-        print("Starting name task")
-        while True:
-            try:
-                connection, data = await self._name_char.written(timeout_ms=2_000)
-                self.save_settings()
-                    
-            except asyncio.TimeoutError:
-                continue
-
-            except Exception as err:
-                sys.print_exception(err)
-                continue
-
 
 
     async def advertising_task(self):

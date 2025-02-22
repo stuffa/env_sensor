@@ -14,6 +14,7 @@ import ubinascii
 import json
 import sys
 import utils
+import ota_update
 import ntptime
 import time
 
@@ -22,7 +23,7 @@ def display_data(display, eTemp, ePresure, eHumidity, aqi, tvoc, eco2):
     display.add("Temp:" + utils.rjust(str(round(eTemp)), 9) + " C")
     display.add("RH:"   + utils.rjust(str(round(eHumidity)), 11) + " %")
     display.add("kPa:"  + utils.rjust(str(round(ePresure/1000, 1)), 12))
-    display.add("AQI:"  + utils.rjust(aqi.rating, 12))
+    display.add("AQI:"  + utils.rjust(utils.upper(aqi.rating), 12))
     display.add("TVOC:" + utils.rjust(str(round(tvoc)), 7) + " ppb")
     display.add("eCO2:" + utils.rjust(str(round(eco2.value)), 7) + " ppm")
     display.show()
@@ -84,7 +85,7 @@ async def connect_to_wifi(display, ble, station):
 def get_utc_time(display):
     row = display.add("NTP...........??")
     ntptime.settime()
-    display.put(row, "NTP...........??")
+    display.put(row, "NTP...........OK")
     t = time.gmtime()
     print("Date: {}-{:02d}-{:02d}, Time: {:02d}:{:02d}".format(t[0], t[1], t[2], t[3], t[4]))
 
@@ -136,7 +137,7 @@ def mqtt_publish_environment(mqtt_client, uid, name, temp, pressure, humidity, a
     mqtt_client.publish( 'environment/' + uid, json.dumps(msg), retain=True)
 
 
-async def polling_task(display, ble):
+async def polling_task(display, ble, station):
     
     print("Polling task started")
     
@@ -144,13 +145,19 @@ async def polling_task(display, ble):
     env = PiicoDev_BME280() # initialise the env sensor
     air = PiicoDev_ENS160() # initialise the aqi sensor 
 
-    # start the wifi
-    station = network.WLAN(network.STA_IF)
-    station.active(True)
-
     await connect_to_wifi(display, ble, station)
 
     get_utc_time(display)
+    
+    row = display.add('OTA Update....??')
+    if ota_update.update_available():
+        print('OTA Update available')
+        ota_update.pull_all()
+        display.put(row, 'OTA Update....OK')
+        print('OTA Update Completed')
+    else:
+        display.put(row, 'OTA Update....NO')
+        print('No OTA update') 
     
     # connect to the mqtt server
     mqtt_client = connect_to_mqtt(display)
@@ -195,7 +202,7 @@ async def polling_task(display, ble):
 #         machine.deepsleep(5000)
         await asyncio.sleep_ms(5000)
 
-async def blink_task():
+async def blink_task(station):
     print('blink task started')
     
     led    = machine.Pin("LED", machine.Pin.OUT)
@@ -205,8 +212,9 @@ async def blink_task():
     
     while True:
 #         wdt.feed()
-        led.value(toggle)
         toggle = not toggle
+        led.value(toggle)
+        blink = 500 if station.isconnected() else 250            
         await asyncio.sleep_ms(blink)
         
 
@@ -219,6 +227,10 @@ async def blink_task():
 display = Display()
 display.clear()
 display.show()
+
+# start the wifi
+station = network.WLAN(network.STA_IF)
+
 
 if utils.console_connected():
     wait_for_startup_interrupt(display)
@@ -242,12 +254,13 @@ ble = BLE_environment()
 
 # Start the tasks
 tasks = [
-    asyncio.create_task(ble.key_task()),
-    asyncio.create_task(ble.ssid_task()),
-    asyncio.create_task(ble.name_task()),
+#     asyncio.create_task(ble.key_task()),
+#     asyncio.create_task(ble.ssid_task()),
+#     asyncio.create_task(ble.name_task()),
+    asyncio.create_task(ble.save_config_task()),
     asyncio.create_task(ble.advertising_task()),
-    asyncio.create_task(blink_task()),
-    asyncio.create_task(polling_task(display, ble)),
+    asyncio.create_task(blink_task(station)),
+    asyncio.create_task(polling_task(display, ble, station)),
 ]
 
 # wait for them to complete

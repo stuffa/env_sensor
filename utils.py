@@ -16,3 +16,7 @@ def uid():
 
 def rjust(s, n):
     return "".join((" "*(n - len(s)), s))
+
+def upper(s):
+     return "".join([w[0].upper() + w[1:] for w in s.split()])
+

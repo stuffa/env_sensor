@@ -32,7 +32,7 @@ default_branch = 'main'
 
 # Don't remove ugit.py from the ignore_files unless you know what you are doing :D
 # Put the files you don't want deleted or updated here use '/filename.ext'
-ignore_files = ['/ugit.py']
+ignore_files = ['/config.json']
 ignore = ignore_files
 ### -----------END OF USER VARIABLES ----------####
 
@@ -42,11 +42,31 @@ giturl = 'https://github.com/{user}/{repository}'
 call_trees_url = f'https://api.github.com/repos/{user}/{repository}/git/trees/{default_branch}?recursive=1'
 raw = f'https://raw.githubusercontent.com/{user}/{repository}/master/'
 
+def update_available():
+    with open('/ota_update.json', 'rt') as f:
+        ota = json.load(f)
+    
+    current_version = ota['version']
+    next_version = latest_version()
+    return next_version > current_version
+
+def latest_version():
+  raw_url = 'https://raw.githubusercontent.com/stuffa/env_sensor/master/ota_update.json'  
+  headers = {'User-Agent': 'env_sensor'} # Github Requires user-agent header otherwise 403
+  if len(token) > 0:
+      headers['authorization'] = "bearer %s" % token 
+  r = urequests.get(raw_url, headers=headers)
+  try:
+    ota_latest = json.loads(r.content.decode('utf-8'))
+  except:
+    return 0
+  return ota_latest['version']
+
+
 def pull(f_path,raw_url):
   print(f'pulling {f_path} from github')
   #files = os.listdir()
-  headers = {'User-Agent': 'ugit-turfptax'} 
-  # ^^^ Github Requires user-agent header otherwise 403
+  headers = {'User-Agent': 'env_sensor'} # Github Requires user-agent header otherwise 403
   if len(token) > 0:
       headers['authorization'] = "bearer %s" % token 
   r = urequests.get(raw_url, headers=headers)
