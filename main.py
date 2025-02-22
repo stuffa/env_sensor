@@ -71,7 +71,7 @@ async def connect_to_wifi(display, ble, station):
         station.connect(ble.wifi_ssid(), ble.wifi_key())
         # wait max 10 seconds to connect, before trying again
         count = 100
-        while (count > 0) and (station.isconnected()) == False:
+        while (count > 0) and (station.isconnected() == False):
             count -= 1
             await asyncio.sleep_ms(100)
 
@@ -84,10 +84,12 @@ async def connect_to_wifi(display, ble, station):
 
 def get_utc_time(display):
     row = display.add("NTP...........??")
+    display.show()
     ntptime.settime()
-    display.put(row, "NTP...........OK")
     t = time.gmtime()
     print("Date: {}-{:02d}-{:02d}, Time: {:02d}:{:02d}".format(t[0], t[1], t[2], t[3], t[4]))
+    display.put(row, "NTP...........OK")
+    display.show()
 
 
 def connect_to_mqtt(display):    
