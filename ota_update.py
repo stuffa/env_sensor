@@ -30,9 +30,9 @@ ignore = ignore_files
 # Static URLS
 # GitHub uses 'main' instead of master for python repository trees
 giturl = 'https://github.com/{user}/{repository}'
-call_trees_url = f'https://api.github.com/repos/{user}/{repository}/git/trees/{default_branch}?recursive=1'
-raw = f'https://raw.githubusercontent.com/{user}/{repository}/{default_branch}/'
-
+call_trees_url = f'https://api.github.com/repos/{user}/{repository}/git/trees/{branch}?recursive=1'
+raw = f'https://raw.githubusercontent.com/{user}/{repository}/{branch}/'
+user_agent = f"'User-Agent': '{user}/{repository}'"
 def update_available():
     with open('/ota_update.json', 'rt') as f:
         ota = json.load(f)
@@ -43,7 +43,7 @@ def update_available():
 
 def latest_version():
   raw_url = raw + 'ota_update.json'  
-  headers = {'User-Agent': 'env_sensor'} # Github Requires user-agent header otherwise 403
+  headers = {user_agent} # Github Requires user-agent header otherwise 403
   if len(token) > 0:
       headers['authorization'] = "bearer %s" % token 
   r = urequests.get(raw_url, headers=headers)
@@ -57,7 +57,7 @@ def latest_version():
 def pull(f_path,raw_url):
   print(f'pulling {f_path} from github')
   #files = os.listdir()
-  headers = {'User-Agent': 'env_sensor'} # Github Requires user-agent header otherwise 403
+  headers = {user_agent} # Github Requires user-agent header otherwise 403
   if len(token) > 0:
       headers['authorization'] = "bearer %s" % token 
   r = urequests.get(raw_url, headers=headers)
@@ -109,8 +109,8 @@ def pull_all(tree=call_trees_url,raw = raw,ignore = ignore):
   logfile = open('ugit_log.py','w')
   logfile.write(str(log))
   logfile.close()
-  time.sleep(10)
   print('resetting machine in 10: machine.reset()')
+  time.sleep(10)
   machine.reset()
   #return check instead return with global
 
@@ -163,9 +163,8 @@ def is_directory(file):
   except:
     return directory
     
-def pull_git_tree(tree_url=call_trees_url,raw = raw):
-  headers = {'User-Agent': 'ugit-turfptax'} 
-  # ^^^ Github Requires user-agent header otherwise 403
+def pull_git_tree(tree_url=call_trees_url, raw = raw):
+  headers = {user_agent}   # Github Requires user-agent header otherwise 403
   if len(token) > 0:
       headers['authorization'] = "bearer %s" % token 
   r = urequests.get(tree_url,headers=headers)
