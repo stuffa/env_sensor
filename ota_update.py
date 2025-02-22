@@ -16,31 +16,22 @@ import network
 
 global internal_tree
 
-#### -------------User Variables----------------####
-#### 
-# Default Network to connect using wificonnect()
-ssid = "OpenMuscle"
-password = "3141592653"
 
-# CHANGE TO YOUR REPOSITORY INFO
 # Repository must be public if no personal access token is supplied
-user = 'turfptax'
-repository = 'ugit_test'
+user = 'stuffa'
+repository = 'env_sensor'
+branch = 'main'
 token = ''
-# Change this variable to 'master' or any other name matching your default branch
-default_branch = 'main'
 
-# Don't remove ugit.py from the ignore_files unless you know what you are doing :D
 # Put the files you don't want deleted or updated here use '/filename.ext'
 ignore_files = ['/config.json']
 ignore = ignore_files
-### -----------END OF USER VARIABLES ----------####
 
 # Static URLS
 # GitHub uses 'main' instead of master for python repository trees
 giturl = 'https://github.com/{user}/{repository}'
 call_trees_url = f'https://api.github.com/repos/{user}/{repository}/git/trees/{default_branch}?recursive=1'
-raw = f'https://raw.githubusercontent.com/{user}/{repository}/master/'
+raw = f'https://raw.githubusercontent.com/{user}/{repository}/{default_branch}/'
 
 def update_available():
     with open('/ota_update.json', 'rt') as f:
@@ -51,7 +42,7 @@ def update_available():
     return next_version > current_version
 
 def latest_version():
-  raw_url = 'https://raw.githubusercontent.com/stuffa/env_sensor/master/ota_update.json'  
+  raw_url = raw + 'ota_update.json'  
   headers = {'User-Agent': 'env_sensor'} # Github Requires user-agent header otherwise 403
   if len(token) > 0:
       headers['authorization'] = "bearer %s" % token 
@@ -81,9 +72,7 @@ def pull(f_path,raw_url):
     except:
       print('tried to close new_file to save memory durring raw file decode')
   
-def pull_all(tree=call_trees_url,raw = raw,ignore = ignore,isconnected=False):
-  if not isconnected:
-      wlan = wificonnect() 
+def pull_all(tree=call_trees_url,raw = raw,ignore = ignore):
   os.chdir('/')
   tree = pull_git_tree()
   internal_tree = build_internal_tree()
@@ -125,20 +114,6 @@ def pull_all(tree=call_trees_url,raw = raw,ignore = ignore,isconnected=False):
   machine.reset()
   #return check instead return with global
 
-def wificonnect(ssid=ssid,password=password):
-    print('Use: like ugit.wificonnect(SSID,Password)')
-    print('otherwise uses ssid,password in top of ugit.py code')
-    wlan = network.WLAN(network.STA_IF)
-    wlan.active(False)
-    wlan.active(True)
-    wlan.connect(ssid,password)
-    while not wlan.isconnected():
-        pass
-    print('Wifi Connected!!')
-    print(f'SSID: {ssid}')
-    print('Local Ip Address, Subnet Mask, Default Gateway, Listening on...')
-    print(wlan.ifconfig())
-    return wlan
   
 def build_internal_tree():
   global internal_tree
@@ -241,20 +216,3 @@ def remove_item(item,tree):
         if item not in i:
             culled.append(i)
     return(culled)
-
-def update():
-    print('updates ugit.py to newest version')
-    raw_url = 'https://raw.githubusercontent.com/turfptax/ugit/master/'
-    pull('ugit.py',raw_url+'ugit.py')
-
-def backup():
-    int_tree = build_internal_tree()
-    backup_text = "ugit Backup Version 1.0\n\n"
-    for i in int_tree:
-        data = open(i[0],'r')
-        backup_text += f'FN:SHA1{i[0]},{i[1]}\n'
-        backup_text += '---'+data.read()+'---\n'
-        data.close()
-    backup = open('ugit.backup','w')
-    backup.write(backup_text)
-    backup.close()
