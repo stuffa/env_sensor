@@ -24,7 +24,7 @@ branch = 'main'
 token = ''
 
 # Put the files you don't want deleted or updated here use '/filename.ext'
-ignore_files = ['/config.json']
+ignore_files = ['/config.json', '/gitignore', '/README.md', '/ToDo.txt']
 ignore = ignore_files
 
 # Static URLS
@@ -41,9 +41,10 @@ def update_available():
     next_version = latest_version()
     return next_version > current_version
 
-def latest_version():
+def latest_version():  
   raw_url = raw + 'ota_update.json'  
-  headers = {user_agent} # Github Requires user-agent header otherwise 403
+  print('raw_url: ' + raw_url)  
+  headers = { 'User-Agent': f'{user}/{repository}' } # Github Requires user-agent header otherwise 403
   if len(token) > 0:
       headers['authorization'] = "bearer %s" % token 
   r = urequests.get(raw_url, headers=headers)
@@ -57,7 +58,7 @@ def latest_version():
 def pull(f_path,raw_url):
   print(f'pulling {f_path} from github')
   #files = os.listdir()
-  headers = {user_agent} # Github Requires user-agent header otherwise 403
+  headers = { 'User-Agent': f'{user}/{repository}' } # Github Requires user-agent header otherwise 403
   if len(token) > 0:
       headers['authorization'] = "bearer %s" % token 
   r = urequests.get(raw_url, headers=headers)
@@ -164,7 +165,7 @@ def is_directory(file):
     return directory
     
 def pull_git_tree(tree_url=call_trees_url, raw = raw):
-  headers = {user_agent}   # Github Requires user-agent header otherwise 403
+  headers = { 'User-Agent': f'{user}/{repository}' }   # Github Requires user-agent header otherwise 403
   if len(token) > 0:
       headers['authorization'] = "bearer %s" % token 
   r = urequests.get(tree_url,headers=headers)

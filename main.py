@@ -150,6 +150,7 @@ async def polling_task(display, ble, station):
     get_utc_time(display)
     
     row = display.add('OTA Update....??')
+    display.show()
     if ota_update.update_available():
         print('OTA Update available')
         ota_update.pull_all()
@@ -157,7 +158,8 @@ async def polling_task(display, ble, station):
         print('OTA Update Completed')
     else:
         display.put(row, 'OTA Update....NO')
-        print('No OTA update') 
+        print('No OTA update')
+    display.show()    
     
     # connect to the mqtt server
     mqtt_client = connect_to_mqtt(display)
