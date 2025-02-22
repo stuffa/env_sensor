@@ -34,7 +34,7 @@ call_trees_url = f'https://api.github.com/repos/{user}/{repository}/git/trees/{b
 raw = f'https://raw.githubusercontent.com/{user}/{repository}/{branch}/'
 user_agent = f"'User-Agent': '{user}/{repository}'"
 def update_available():
-    with open('/ota_update.json', 'rt') as f:
+    with open('/version.json', 'rt') as f:
         ota = json.load(f)
     
     current_version = ota['version']
@@ -42,7 +42,7 @@ def update_available():
     return next_version > current_version
 
 def latest_version():  
-  raw_url = raw + 'ota_update.json'  
+  raw_url = raw + 'version.json'  
   print('raw_url: ' + raw_url)  
   headers = { 'User-Agent': f'{user}/{repository}' } # Github Requires user-agent header otherwise 403
   if len(token) > 0:
