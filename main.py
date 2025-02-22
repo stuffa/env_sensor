@@ -155,6 +155,8 @@ async def polling_task(display, ble, station):
     display.show()
     if ota_update.update_available():
         print('OTA Update available')
+        display.put(row, 'OTA Update...YES')
+        display.show()
         ota_update.pull_all()
         display.put(row, 'OTA Update....OK')
         print('OTA Update Completed')
