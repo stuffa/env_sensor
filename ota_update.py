@@ -1,17 +1,11 @@
-# ugit
-# micropython OTA update from github
-# Created by TURFPTAx for the openmuscle project
-# Check out https://openmuscle.org for more info
-#
-# Pulls files and folders from open github repository
+
+# Pulls files and folders from open GitHub repository
 
 import os
 import urequests
 import json
-import binascii
 import machine
 import time
-import network
 
 global internal_tree
 
@@ -43,7 +37,7 @@ def update_available():
 def latest_version():  
   raw_url = raw + 'version.json'  
   print('raw_url: ' + raw_url)  
-  headers = { 'User-Agent': f'{user}/{repository}' } # Github Requires user-agent header otherwise 403
+  headers = { 'User-Agent': f'{user}/{repository}' } # GitHub Requires user-agent header otherwise 403
   if len(token) > 0:
       headers['authorization'] = "bearer %s" % token 
   r = urequests.get(raw_url, headers=headers)
@@ -57,22 +51,17 @@ def latest_version():
 def pull(f_path,raw_url):
   print(f'pulling {f_path} from github')
   #files = os.listdir()
-  headers = { 'User-Agent': f'{user}/{repository}' } # Github Requires user-agent header otherwise 403
+  headers = { 'User-Agent': f'{user}/{repository}' } # GitHub Requires user-agent header otherwise 403
   if len(token) > 0:
       headers['authorization'] = "bearer %s" % token 
   r = urequests.get(raw_url, headers=headers)
   try:
-    new_file = open(f_path, 'w')
-    new_file.write(r.content.decode('utf-8'))
-    new_file.close()
+    with open(f_path, 'w') as new_file:
+        new_file.write(r.content.decode('utf-8'))
   except:
     print('decode fail try adding non-code files to .gitignore')
-    try:
-      new_file.close()
-    except:
-      print('tried to close new_file to save memory durring raw file decode')
-  
-def pull_all(tree=call_trees_url,raw = raw,ignore = ignore):
+
+def pull_all(raw = raw, ignore = ignore):
   os.chdir('/')
   tree = pull_git_tree()
   internal_tree = build_internal_tree()
@@ -106,7 +95,7 @@ def pull_all(tree=call_trees_url,raw = raw,ignore = ignore):
       for i in internal_tree:
           os.remove(i)
           log.append(i + ' removed from int mem')
-  logfile = open('ugit_log.py','w')
+  logfile = open('ota_log.py','w')
   logfile.write(str(log))
   logfile.close()
   print('resetting machine in 2: machine.reset()')
@@ -121,7 +110,7 @@ def build_internal_tree():
   os.chdir('/')
   for i in os.listdir():
     add_to_tree(i)
-  return(internal_tree)
+  return internal_tree
 
 def add_to_tree(dir_item):
   global internal_tree
@@ -146,21 +135,21 @@ def add_to_tree(dir_item):
 def is_directory(file):
   directory = False
   try:
-    return (os.stat(file)[8] == 0)
+    return os.stat(file)[8] == 0
   except:
     return directory
     
-def pull_git_tree(tree_url=call_trees_url, raw = raw):
-  headers = { 'User-Agent': f'{user}/{repository}' }   # Github Requires user-agent header otherwise 403
+def pull_git_tree(tree_url=call_trees_url):
+  headers = { 'User-Agent': f'{user}/{repository}' }   # GitHub Requires user-agent header otherwise 403
   if len(token) > 0:
       headers['authorization'] = "bearer %s" % token 
   r = urequests.get(tree_url,headers=headers)
   data = json.loads(r.content.decode('utf-8'))
   if 'tree' not in data:
-      print('\nDefault branch "main" not found. Set "default_branch" variable to your default branch.\n')
-      raise Exception(f'Default branch {default_branch} not found.') 
+      print(f'\nBranch "{branch}" not found. Set "branch" variable to your branch.\n')
+      raise Exception(f'Branch {branch} not found.')
   tree = json.loads(r.content.decode('utf-8'))
-  return(tree)
+  return tree
   
 def parse_git_tree():
   tree = pull_git_tree()
@@ -175,10 +164,9 @@ def parse_git_tree():
   print('files:',files)
    
    
-def check_ignore(tree=call_trees_url,raw = raw,ignore = ignore):
+def check_ignore(ignore = ignore):
   os.chdir('/')
   tree = pull_git_tree()
-  check = []
   # download and save all files
   for i in tree['tree']:
     if i['path'] not in ignore:
@@ -186,7 +174,7 @@ def check_ignore(tree=call_trees_url,raw = raw,ignore = ignore):
     if i['path'] in ignore:
         print(i['path']+ ' is in ignore')
         
-def remove_ignore(internal_tree,ignore=ignore):
+def remove_ignore(internal_tree, ignore = ignore):
     clean_tree = []
     int_tree = []
     for i in internal_tree:
@@ -194,11 +182,11 @@ def remove_ignore(internal_tree,ignore=ignore):
     for i in int_tree:
         if i not in ignore:
             clean_tree.append(i)
-    return(clean_tree)
+    return clean_tree
         
 def remove_item(item,tree):
     culled = []
     for i in tree:
         if item not in i:
             culled.append(i)
-    return(culled)
+    return culled

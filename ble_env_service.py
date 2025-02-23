@@ -2,8 +2,6 @@ import sys
 import asyncio
 import aioble
 import bluetooth
-import machine
-import asyncio
 import json
 import utils
 
@@ -41,7 +39,7 @@ _MODEL = "TPH-1.0"
 _ADV_INTERVAL_MS = 5_000
 
 
-class BLE_environment():
+class BleEnvironment():
     def __init__(self, name='PicoSensors'):
 
         self._key = ""

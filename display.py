@@ -1,5 +1,4 @@
 from PiicoDev_SSD1306 import *
-from PiicoDev_Unified import sleep_ms
 
 class Display():
     
@@ -15,7 +14,7 @@ class Display():
         self._next_row = 0
         self._display_dev = create_PiicoDev_SSD1306()
         self._display_present = True
-        # test if the display is present.  if not set variable so that all display functions are by passed    
+        # test if the display is present.  if not set variable so that all display functions are by-passed
         self._display_dev.poweron()
         if self._display_dev.comms_err:
             print("PiicoDev SSD1306 Display not present")

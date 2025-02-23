@@ -2,12 +2,11 @@
 from PiicoDev_Unified import sleep_ms # cross-platform compatible sleep function
 from PiicoDev_BME280 import PiicoDev_BME280
 from PiicoDev_ENS160 import PiicoDev_ENS160
-from umqtt.simple import MQTTClient
-from ble_env_service import BLE_environment
+from lib.umqtt.simple import MQTTClient
+from ble_env_service import BleEnvironment
 from display import Display
 
 import asyncio
-import aioble
 import network
 import machine
 import ubinascii
@@ -18,11 +17,11 @@ import ota_update
 import ntptime
 import time
 
-def display_data(display, eTemp, ePresure, eHumidity, aqi, tvoc, eco2):
+def display_data(display, temp, pressure, humidity, aqi, tvoc, eco2):
     display.clear()
-    display.add("Temp:" + utils.rjust(str(round(eTemp)), 9) + " C")
-    display.add("RH:"   + utils.rjust(str(round(eHumidity)), 11) + " %")
-    display.add("kPa:"  + utils.rjust(str(round(ePresure/1000, 1)), 12))
+    display.add("Temp:" + utils.rjust(str(round(temp)), 9) + " C")
+    display.add("RH:" + utils.rjust(str(round(humidity)), 11) + " %")
+    display.add("kPa:" + utils.rjust(str(round(pressure / 1000, 1)), 12))
     display.add("AQI:" + utils.rjust(utils.titleise(aqi.rating), 12))
     display.add("TVOC:" + utils.rjust(str(round(tvoc)), 7) + " ppb")
     display.add("eCO2:" + utils.rjust(str(round(eco2.value)), 7) + " ppm")
@@ -110,13 +109,12 @@ def connect_to_mqtt(display):
         mqtt_client = MQTTClient(client_id, mqtt_server, user=mqtt_user, password=mqtt_pass, keepalive=mqtt_keepalive)
         mqtt_client.connect()
         print('Connected to %s MQTT broker' % mqtt_server)
+        display.put(row, "MQTT..........OK")
+        display.show()
+        return mqtt_client
     except:
         restart(display)
 
-    display.put(row, "MQTT..........OK")
-    display.show()
-    
-    return mqtt_client
 
 
 def mqtt_publish_environment(mqtt_client, uid, name, temp, pressure, humidity, aqi, tvoc, eco2):
@@ -173,29 +171,29 @@ async def polling_task(display, ble, station):
     
     while True:
         try:
-            eTemp, ePressure, eHumidity = env.values() # read all data from the sensor
+            temp, pressure, humidity = env.values() # read all data from the sensor
 
-            air.temperature = eTemp
-            air.humidity    = eHumidity
+            air.temperature = temp
+            air.humidity    = humidity
             
             tvoc = air.tvoc
             eco2 = air.eco2
             aqi  = air.aqi
         
 #           print('---------------------------------------------')
-#           print('    Temp: ' + str(round(eTemp)) + " °C, ")
-#           print('Pressure: ' + str(round(ePressure/1000))+" kPa, ")
-#           print('Humidity: ' + str(round(eHumidity)) + " %")
+#           print('    Temp: ' + str(round(temp)) + " °C, ")
+#           print('Pressure: ' + str(round(pressure/1000))+" kPa, ")
+#           print('Humidity: ' + str(round(humidity)) + " %")
 #           print('     AQI: ' + str(aqi.value) +  ' [' + str(aqi.rating) +']')
 #           print('    TVOC: ' + str(tvoc) + ' ppb')
 #           print('    eCO2: ' + str(eco2.value) + ' ppm [' + str(eco2.rating) +']')
 #           print('  Status: ' + str(air.status_validity_flag) + ' [' + air.operation +']')
 
-            display_data(display, eTemp, ePressure, eHumidity, aqi, tvoc, eco2)
-            mqtt_publish_environment(mqtt_client, uid, ble.name(), eTemp, ePressure, eHumidity, aqi, tvoc, eco2)
-            ble.update_temperature(eTemp)
-            ble.update_humidity(eHumidity)
-            ble.update_pressure(ePressure)
+            display_data(display, temp, pressure, humidity, aqi, tvoc, eco2)
+            mqtt_publish_environment(mqtt_client, uid, ble.name(), temp, pressure, humidity, aqi, tvoc, eco2)
+            ble.update_temperature(temp)
+            ble.update_humidity(humidity)
+            ble.update_pressure(pressure)
        
         except Exception as err: 
             sys.print_exception(err)  
@@ -210,7 +208,6 @@ async def blink_task(station):
     led    = machine.Pin("LED", machine.Pin.OUT)
     toggle = True
 #     wdt    = machine.WDT(timeout = 8388) # Start the watchdog 8.388 seconds
-    blink = 500
     
     while True:
 #         wdt.feed()
@@ -230,7 +227,7 @@ display = Display()
 display.clear()
 display.show()
 
-# start the wifi
+# start the Wi-Fi
 station = network.WLAN(network.STA_IF)
 
 
@@ -239,7 +236,7 @@ if utils.console_connected():
     
 
 # create the object we will be using
-ble = BLE_environment()
+ble = BleEnvironment()
 
 # rc = machine.reset_cause()
 # if (rc == machine.PWRON_RESET):
@@ -247,11 +244,6 @@ ble = BLE_environment()
     # before starting the watchdog
     # attempt a firmware update
 
-
-# before we get started, try and update the firmware
-# 1. start ble so we can change the config - or should we just try and fail with bad config
-# 2. start the wifi (async)
-# 3. once connected perform update (async)
 
 
 # Start the tasks
