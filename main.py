@@ -23,7 +23,7 @@ def display_data(display, eTemp, ePresure, eHumidity, aqi, tvoc, eco2):
     display.add("Temp:" + utils.rjust(str(round(eTemp)), 9) + " C")
     display.add("RH:"   + utils.rjust(str(round(eHumidity)), 11) + " %")
     display.add("kPa:"  + utils.rjust(str(round(ePresure/1000, 1)), 12))
-    display.add("AQI:" + utils.rjust(utils.titleise(aqi.rating), 12))
+    display.add("AQI:"  + utils.rjust(utils.titleise(aqi.rating), 12))
     display.add("TVOC:" + utils.rjust(str(round(tvoc)), 7) + " ppb")
     display.add("eCO2:" + utils.rjust(str(round(eco2.value)), 7) + " ppm")
     display.show()
@@ -61,7 +61,7 @@ async def connect_to_wifi(display, ble, station):
     display.show()
     print('Connecting to WiFi - ' + ble.wifi_ssid())
 
-    while not station.isconnected():
+    while station.isconnected() == False:
         if station.active():
             station.active(False)
         
@@ -75,7 +75,7 @@ async def connect_to_wifi(display, ble, station):
             count -= 1
             await asyncio.sleep_ms(100)
 
-    # We only get here is we successfully connected to Wi-Fi
+    # We only get here is we sucessfully connected to wifi
     display.put(row, "WiFi..........OK")
     display.show()
     print("Wifi Connected OK")
@@ -109,7 +109,7 @@ def connect_to_mqtt(display):
     try:
         mqtt_client = MQTTClient(client_id, mqtt_server, user=mqtt_user, password=mqtt_pass, keepalive=mqtt_keepalive)
         mqtt_client.connect()
-        print('Connected to %s MQTT broker' % mqtt_server)
+        print('Connected to %s MQTT broker' % (mqtt_server))
     except:
         restart(display)
 
@@ -121,19 +121,20 @@ def connect_to_mqtt(display):
 
 def mqtt_publish_environment(mqtt_client, uid, name, temp, pressure, humidity, aqi, tvoc, eco2):
     t = time.gmtime()
-    msg = {
-        "id": uid,
-        "utc": "{}-{:02d}-{:02d}T{:02d}:{:02d}:{:02d}".format(t[0], t[1], t[2], t[3], t[4], t[5]),
-        "name": name,
-        "temp": temp,
-        "pressure": pressure,
-        "humidity": humidity,
-        "aqi_value": aqi.value,
-        "aqi_rating": aqi.rating,
-        "tvoc_value": tvoc,
-        "eco2_value": eco2.value,
-        "eco2_rating": eco2.rating
-    }
+    
+    msg = {}
+    msg["id"]          = uid
+    msg["utc"]         = "{}-{:02d}-{:02d} {:02d}:{:02d}:{:02d}".format(t[0], t[1], t[2], t[3], t[4], t[5])
+    msg["name"]        = name
+    msg["temp"]        = temp
+    msg["pressure"]    = pressure
+    msg["humidity"]    = humidity
+    msg["aqi_value"]   = aqi.value
+    msg["aqi_rating"]  = aqi.rating
+    msg["tvoc_value"]  = tvoc
+    msg["eco2_value"]  = eco2.value
+    msg["eco2_rating"] = eco2.rating
+    
     mqtt_client.publish( 'environment/' + uid, json.dumps(msg), retain=True)
 
 
@@ -173,11 +174,10 @@ async def polling_task(display, ble, station):
     
     while True:
         try:
-            print('Sampling')
             eTemp, ePressure, eHumidity = env.values() # read all data from the sensor
-
+            
             air.temperature = eTemp
-            air.humidity    = eHumidity
+            air.humidity   = eHumidity
             
             tvoc = air.tvoc
             eco2 = air.eco2
@@ -186,7 +186,7 @@ async def polling_task(display, ble, station):
 #           print('---------------------------------------------')
 #           print('    Temp: ' + str(round(eTemp)) + " °C, ")
 #           print('Pressure: ' + str(round(ePressure/1000))+" kPa, ")
-#           print('Humidity: ' + str(round(eHumidity)) + " %")
+#           print('Humitity: ' + str(round(eHumidity)) + " %")
 #           print('     AQI: ' + str(aqi.value) +  ' [' + str(aqi.rating) +']')
 #           print('    TVOC: ' + str(tvoc) + ' ppb')
 #           print('    eCO2: ' + str(eco2.value) + ' ppm [' + str(eco2.rating) +']')
@@ -202,7 +202,6 @@ async def polling_task(display, ble, station):
             sys.print_exception(err)  
             restart(display)    
         
-        print('Sleeping')
 #         machine.deepsleep(5000)
         await asyncio.sleep_ms(5000)
 

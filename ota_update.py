@@ -1,8 +1,13 @@
+# ugit
+# micropython OTA update from github
+# Created by TURFPTAx for the openmuscle project
+# Check out https://openmuscle.org for more info
+#
+# Pulls files and folders from open github repository
 
 import os
 import urequests
 import json
-import hashlib
 import binascii
 import machine
 import time
@@ -57,11 +62,16 @@ def pull(f_path,raw_url):
       headers['authorization'] = "bearer %s" % token 
   r = urequests.get(raw_url, headers=headers)
   try:
-    with open(f_path, 'w') as new_file:
-        new_file.write(r.content.decode('utf-8'))
+    new_file = open(f_path, 'w')
+    new_file.write(r.content.decode('utf-8'))
+    new_file.close()
   except:
     print('decode fail try adding non-code files to .gitignore')
-
+    try:
+      new_file.close()
+    except:
+      print('tried to close new_file to save memory durring raw file decode')
+  
 def pull_all(tree=call_trees_url,raw = raw,ignore = ignore):
   os.chdir('/')
   tree = pull_git_tree()
@@ -99,8 +109,8 @@ def pull_all(tree=call_trees_url,raw = raw,ignore = ignore):
   logfile = open('ugit_log.py','w')
   logfile.write(str(log))
   logfile.close()
-  print('resetting machine in 10: machine.reset()')
-  time.sleep(10)
+  print('resetting machine in 2: machine.reset()')
+  time.sleep(2)
   machine.reset()
   #return check instead return with global
 
@@ -128,23 +138,10 @@ def add_to_tree(dir_item):
       subfile_path = os.getcwd() + dir_item
     try:
       print(f'sub_path: {subfile_path}')
-      internal_tree.append([subfile_path,get_hash(subfile_path)])
+      internal_tree.append([subfile_path])
     except OSError: # type: ignore # for removing the type error indicator :)
       print(f'{dir_item} could not be added to tree')
 
-
-def get_hash(file):
-  print(file)
-  o_file = open(file)
-  r_file = o_file.read()
-  sha1obj = hashlib.sha1(r_file)
-  hash = sha1obj.digest()
-  return(binascii.hexlify(hash))
-
-def get_data_hash(data):
-    sha1obj = hashlib.sha1(data)
-    hash = sha1obj.digest()
-    return(binascii.hexlify(hash))
   
 def is_directory(file):
   directory = False
@@ -160,8 +157,8 @@ def pull_git_tree(tree_url=call_trees_url, raw = raw):
   r = urequests.get(tree_url,headers=headers)
   data = json.loads(r.content.decode('utf-8'))
   if 'tree' not in data:
-      print(f'\nBranch "{branch}" not found. Set "branch" variable to your  branch.\n')
-      raise Exception(f'Branch {branch} not found.')
+      print('\nDefault branch "main" not found. Set "default_branch" variable to your default branch.\n')
+      raise Exception(f'Default branch {default_branch} not found.') 
   tree = json.loads(r.content.decode('utf-8'))
   return(tree)
   
