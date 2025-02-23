@@ -19,9 +19,9 @@ _BLE_VERSION_ID       = const(0x2A28)
 
 
 _ENV_SENSOR_INFO_UUID = bluetooth.UUID(0x181A)
-_TEMPRATURE_ID = const(0x2A6E)
-_HUMIDITY_ID   = const(0x2A6F)
-_PRESSURE_ID   = const(0x2A6D)
+_TEMPERATURE_ID = const(0x2A6E)
+_HUMIDITY_ID    = const(0x2A6F)
+_PRESSURE_ID    = const(0x2A6D)
 
 
 _WIFI_SETTINGS_UUID = bluetooth.UUID("21c04d09-c884-4af1-96a9-52e4e4ba195b")
@@ -31,7 +31,7 @@ _WIFI_KEY_ID    = bluetooth.UUID("1e500043-6b31-4a3d-b91e-025f92ca9764")
 _WIFI_STATUS_ID = bluetooth.UUID("1e500043-6b31-4a3d-b91e-025f92ca9765")
 _WIFI_SAVE_ID   = bluetooth.UUID("1e500043-6b31-4a3d-b91e-025f92ca9766")
 
-# this is usead as the apperance in the advertisments - not sure what that does
+# this is used as the appearance in the ble advertisements - not sure what that does
 _GENERIC_THERMOMETER = const(768)
 _SERVICES = [_DEVICE_INFO_UUID, _ENV_SENSOR_INFO_UUID, _WIFI_SETTINGS_UUID]
 _MANUFACTURER = b"martin.cc"
@@ -59,7 +59,7 @@ class BLE_environment():
         self._model_char.write(_MODEL)
         
         self._sensor_info = aioble.Service(_ENV_SENSOR_INFO_UUID)
-        self._temprature_char = aioble.Characteristic(self._sensor_info, bluetooth.UUID(_TEMPRATURE_ID), read=True, notify=True)
+        self._temperature_char = aioble.Characteristic(self._sensor_info, bluetooth.UUID(_TEMPERATURE_ID), read=True, notify=True)
         self._humidity_char   = aioble.Characteristic(self._sensor_info, bluetooth.UUID(_HUMIDITY_ID),   read=True, notify=True)
         self._pressure_char   = aioble.Characteristic(self._sensor_info, bluetooth.UUID(_PRESSURE_ID),   read=True, notify=True)
         
@@ -84,7 +84,7 @@ class BLE_environment():
         if config["key"]:
             self._key = config["key"]
             
-        self.update_temprature(0)
+        self.update_temperature(0)
         self.update_humidity(0)
         self.update_pressure(0)
 
@@ -104,8 +104,8 @@ class BLE_environment():
         return self._name_char.read().decode("utf-8")
 
 
-    def update_temprature(self, temp):
-        self._temprature_char.write(int(temp*100).to_bytes(2, 'little'), send_update=True)
+    def update_temperature(self, temp):
+        self._temperature_char.write(int(temp * 100).to_bytes(2, 'little'), send_update=True)
 
 
     def update_humidity(self, humidity):
@@ -118,10 +118,11 @@ class BLE_environment():
         
     def save_settings(self):
             print("making config")
-            config = {}
-            config["name"] = self._name_char.read().decode("utf-8")
-            config["ssid"] = self._ssid_char.read().decode("utf-8")
-            config["key"]  = self._key
+            config = {
+                "name": self._name_char.read().decode("utf-8"),
+                "ssid": self._ssid_char.read().decode("utf-8"),
+                "key": self._key
+            }
             print("New Config: " + str(config))
             
             with open("config.json", "wt") as f:

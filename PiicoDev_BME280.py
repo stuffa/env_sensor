@@ -95,7 +95,7 @@ class PiicoDev_BME280:
             raw_t, raw_p, raw_h = self.read_raw_data()
         except:
             print(i2c_err_str.format(self.addr))
-            return (float('NaN'), float('NaN'), float('NaN'))
+            return float('NaN'), float('NaN'), float('NaN')
         var1 = ((raw_t>>3)-(self._T1<<1))*(self._T2>>11)
         var2 = (raw_t >> 4)-self._T1
         var2 = var2*((raw_t>>4)-self._T1)

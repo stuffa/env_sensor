@@ -1,9 +1,3 @@
-# ugit
-# micropython OTA update from github
-# Created by TURFPTAx for the openmuscle project
-# Check out https://openmuscle.org for more info
-#
-# Pulls files and folders from open github repository
 
 import os
 import urequests
@@ -63,16 +57,11 @@ def pull(f_path,raw_url):
       headers['authorization'] = "bearer %s" % token 
   r = urequests.get(raw_url, headers=headers)
   try:
-    new_file = open(f_path, 'w')
-    new_file.write(r.content.decode('utf-8'))
-    new_file.close()
+    with open(f_path, 'w') as new_file:
+        new_file.write(r.content.decode('utf-8'))
   except:
     print('decode fail try adding non-code files to .gitignore')
-    try:
-      new_file.close()
-    except:
-      print('tried to close new_file to save memory durring raw file decode')
-  
+
 def pull_all(tree=call_trees_url,raw = raw,ignore = ignore):
   os.chdir('/')
   tree = pull_git_tree()
@@ -171,8 +160,8 @@ def pull_git_tree(tree_url=call_trees_url, raw = raw):
   r = urequests.get(tree_url,headers=headers)
   data = json.loads(r.content.decode('utf-8'))
   if 'tree' not in data:
-      print('\nDefault branch "main" not found. Set "default_branch" variable to your default branch.\n')
-      raise Exception(f'Default branch {default_branch} not found.') 
+      print(f'\nBranch "{branch}" not found. Set "branch" variable to your  branch.\n')
+      raise Exception(f'Branch {branch} not found.')
   tree = json.loads(r.content.decode('utf-8'))
   return(tree)
   
