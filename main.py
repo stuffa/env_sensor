@@ -84,7 +84,15 @@ async def connect_to_wifi(display, ble, station):
 def get_utc_time(display):
     row = display.add("NTP...........??")
     display.show()
-    ntptime.settime()
+
+    try:
+        ntptime.settime()
+    except:
+        print("Unable to reach the NTP server")
+        display.put(row, "NTP...........NO")
+        display.show()
+        return
+
     t = time.gmtime()
     print("Date: {}-{:02d}-{:02d}, Time: {:02d}:{:02d}".format(t[0], t[1], t[2], t[3], t[4]))
     display.put(row, "NTP...........OK")
