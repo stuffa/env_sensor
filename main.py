@@ -37,7 +37,7 @@ def restart(display):
 
   finally:    
       machine.reset()
-    
+
 
 def wait_for_startup_interrupt(display):
     print("Wait for user interrupt")
@@ -52,8 +52,8 @@ def wait_for_startup_interrupt(display):
 
     display.put(row, "Interrupt.....OK")
     display.show()
- 
- 
+
+
 async def connect_to_wifi(display, ble, station):
 
     row = display.add("WiFi..........??")
@@ -63,9 +63,9 @@ async def connect_to_wifi(display, ble, station):
     while not station.isconnected():
         if station.active():
             station.active(False)
-        
+
         station.active(True)
-        
+
         print("Connecting to: " + ble.wifi_ssid() +":" + ble.wifi_key()) 
         station.connect(ble.wifi_ssid(), ble.wifi_key())
         # wait max 10 seconds to connect, before trying again
@@ -82,6 +82,7 @@ async def connect_to_wifi(display, ble, station):
 
 
 def get_utc_time(display):
+    print('Getting NTP Date/Time') 
     row = display.add("NTP...........??")
     display.show()
 
@@ -94,7 +95,7 @@ def get_utc_time(display):
         return
 
     t = time.gmtime()
-    print("Date: {}-{:02d}-{:02d}, Time: {:02d}:{:02d}".format(t[0], t[1], t[2], t[3], t[4]))
+    print("NTP: Date: {}-{:02d}-{:02d}, Time: {:02d}:{:02d}".format(t[0], t[1], t[2], t[3], t[4]))
     display.put(row, "NTP...........OK")
     display.show()
 
@@ -124,7 +125,6 @@ def connect_to_mqtt(display):
         restart(display)
 
 
-
 def mqtt_publish_environment(mqtt_client, uid, name, temp, pressure, humidity, aqi, tvoc, eco2):
     t = time.gmtime()
     msg = {
@@ -144,9 +144,9 @@ def mqtt_publish_environment(mqtt_client, uid, name, temp, pressure, humidity, a
 
 
 async def polling_task(display, ble, station):
-    
+
     print("Polling task started")
-    
+
     uid  = utils.uid()      # The id sent to the mqtt server
     env = PiicoDev_BME280() # initialise the env sensor
     air = PiicoDev_ENS160() # initialise the aqi sensor 
@@ -154,7 +154,7 @@ async def polling_task(display, ble, station):
     await connect_to_wifi(display, ble, station)
 
     get_utc_time(display)
-    
+
     row = display.add('OTA Update....??')
     display.show()
     if ota_update.update_available():
@@ -168,7 +168,7 @@ async def polling_task(display, ble, station):
         display.put(row, 'OTA Update....NO')
         print('No OTA update')
     display.show()    
-    
+
     # connect to the mqtt server
     mqtt_client = connect_to_mqtt(display)
 
@@ -176,22 +176,22 @@ async def polling_task(display, ble, station):
     sleep_ms(2000)
     display.clear()
     display.show()
-    
+
     print('Starting polling')
-    
+
     count = 0
-    
+
     while True:
         try:
             temp, pressure, humidity = env.values() # read all data from the sensor
 
             air.temperature = temp
             air.humidity    = humidity
-            
+
             tvoc = air.tvoc
             eco2 = air.eco2
             aqi  = air.aqi
-        
+
 #           print('---------------------------------------------')
 #           print('    Temp: ' + str(round(temp)) + " °C, ")
 #           print('Pressure: ' + str(round(pressure/1000))+" kPa, ")
@@ -216,30 +216,29 @@ async def polling_task(display, ble, station):
                     print('calling stop')
                     count = 99
                     ble.stop()
-                    
+
         except Exception as err: 
             sys.print_exception(err)  
             restart(display)    
-        
+
 #         machine.deepsleep(10000)
         await asyncio.sleep_ms(5000)
 
 async def blink_task(station):
     print('blink task started')
-    
+
     led    = machine.Pin("LED", machine.Pin.OUT)
     toggle = True
 #     wdt    = machine.WDT(timeout = 8388) # Start the watchdog 8.388 seconds
-    
+
     while True:
 #         wdt.feed()
         toggle = not toggle
         led.value(toggle)
         blink = 500 if station.isconnected() else 250            
         await asyncio.sleep_ms(blink)
-        
 
-        
+
 #############################
 #    main
 #############################
@@ -252,10 +251,8 @@ display.show()
 # start the Wi-Fi
 station = network.WLAN(network.STA_IF)
 
-
 if utils.console_connected():
     wait_for_startup_interrupt(display)
-    
 
 # create the object we will be using
 ble = BleEnvironment()
@@ -268,8 +265,6 @@ ble.start()
     # allow time for a developer to stop the process for debugging
     # before starting the watchdog
     # attempt a firmware update
-
-
 
 # Start the tasks
 tasks = [
