@@ -1,10 +1,10 @@
 
 from PiicoDev_Unified import sleep_ms # cross-platform compatible sleep function
-from PiicoDev_BME280 import PiicoDev_BME280
-from PiicoDev_ENS160 import PiicoDev_ENS160
+from PiicoDev_BME280  import PiicoDev_BME280
+from PiicoDev_ENS160  import PiicoDev_ENS160
 from lib.umqtt.simple import MQTTClient
-from ble_env_service import BleEnvironment
-from display import Display
+from ble_env_service  import BleEnvironment
+from display          import Display
 
 import asyncio
 import network
@@ -20,9 +20,9 @@ import time
 def display_data(display, temp, pressure, humidity, aqi, tvoc, eco2):
     display.clear()
     display.add("Temp:" + utils.rjust(str(round(temp)), 9) + " C")
-    display.add("RH:" + utils.rjust(str(round(humidity)), 11) + " %")
-    display.add("kPa:" + utils.rjust(str(round(pressure / 1000, 1)), 12))
-    display.add("AQI:" + utils.rjust(utils.titleise(aqi.rating), 12))
+    display.add("RH:"   + utils.rjust(str(round(humidity)), 11) + " %")
+    display.add("kPa:"  + utils.rjust(str(round(pressure / 1000, 1)), 12))
+    display.add("AQI:"  + utils.rjust(utils.titleise(aqi.rating), 12))
     display.add("TVOC:" + utils.rjust(str(round(tvoc)), 7) + " ppb")
     display.add("eCO2:" + utils.rjust(str(round(eco2.value)), 7) + " ppm")
     display.show()
@@ -177,6 +177,10 @@ async def polling_task(display, ble, station):
     display.clear()
     display.show()
     
+    print('Starting polling')
+    
+    count = 0
+    
     while True:
         try:
             temp, pressure, humidity = env.values() # read all data from the sensor
@@ -199,15 +203,25 @@ async def polling_task(display, ble, station):
 
             display_data(display, temp, pressure, humidity, aqi, tvoc, eco2)
             mqtt_publish_environment(mqtt_client, uid, ble.name(), temp, pressure, humidity, aqi, tvoc, eco2)
-            ble.update_temperature(temp)
-            ble.update_humidity(humidity)
-            ble.update_pressure(pressure)
-       
+#             ble.update_temperature(temp)
+#             ble.update_humidity(humidity)
+#             ble.update_pressure(pressure)
+#             ble.update_aqi(aqi)
+#             ble.update_tvoc(tvoc)
+#             ble.update_eco2(eco2)
+            if count < 2:
+                count += 1
+            else:
+                if count == 2:
+                    print('calling stop')
+                    count = 99
+                    ble.stop()
+                    
         except Exception as err: 
             sys.print_exception(err)  
             restart(display)    
         
-#         machine.deepsleep(5000)
+#         machine.deepsleep(10000)
         await asyncio.sleep_ms(5000)
 
 async def blink_task(station):
@@ -245,6 +259,9 @@ if utils.console_connected():
 
 # create the object we will be using
 ble = BleEnvironment()
+ble.start()
+
+# ble_timer = machine.Timer(period=(1*60*1000), mode=machine.Timer.ONE_SHOT, callback=ble.stop)
 
 # rc = machine.reset_cause()
 # if (rc == machine.PWRON_RESET):
@@ -259,8 +276,8 @@ tasks = [
 #     asyncio.create_task(ble.key_task()),
 #     asyncio.create_task(ble.ssid_task()),
 #     asyncio.create_task(ble.name_task()),
-    asyncio.create_task(ble.save_config_task()),
-    asyncio.create_task(ble.advertising_task()),
+#     asyncio.create_task(ble.save_config_task()),
+#     asyncio.create_task(ble.advertising_task()),
     asyncio.create_task(blink_task(station)),
     asyncio.create_task(polling_task(display, ble, station)),
 ]
