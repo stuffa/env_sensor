@@ -205,7 +205,7 @@ class BleEnvironment():
             try:
                 connection, data = await self._save_char.written(timeout_ms=1000)
                 if connection:
-                    self._save_char.write(0)    
+                    self._save_char.write('n')    
                     self.save_settings()
                     
             except asyncio.CancelledError:
