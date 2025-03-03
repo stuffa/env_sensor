@@ -1,12 +1,5 @@
-Add OTA update of code
-
-Improve WiFi connection and MQTT connect
-
-Add OTA updates https://github.com/turfptax/ugit
 
 add BLE security
-
-Expose micropythong version and code version via BLE service
 
 restrict how long BLE runs - conserver batter - 5min after startup
 but waht about BLE BTHome bcasts - maybe we make then a seperate service

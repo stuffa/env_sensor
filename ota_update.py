@@ -180,13 +180,13 @@ def remove_file(tree, file_name):
     return new_tree
 
 # Testing
-if __name__ == "__main__":
-    print(pull_git_tree())
-    local_tree = build_local_tree()
-    print(local_tree)
-    local_tree = remove_files_from_tree(local_tree, kept_files)
-    print(local_tree)
-    local_tree = remove_file(local_tree, '/version.json')
-    print(local_tree)
-    pull('/version.json', git_raw_url + 'version.json')
-    
+# if __name__ == "__main__":
+#     print(pull_git_tree())
+#     local_tree = build_local_tree()
+#     print(local_tree)
+#     local_tree = remove_files_from_tree(local_tree, kept_files)
+#     print(local_tree)
+#     local_tree = remove_file(local_tree, '/version.json')
+#     print(local_tree)
+#     pull('/version.json', git_raw_url + 'version.json')
+#     

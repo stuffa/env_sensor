@@ -209,20 +209,22 @@ async def polling_task(display, ble, station):
 #             ble.update_aqi(aqi)
 #             ble.update_tvoc(tvoc)
 #             ble.update_eco2(eco2)
-            if count < 2:
-                count += 1
-            else:
-                if count == 2:
-                    print('calling stop')
-                    count = 99
-                    ble.stop()
+
+#             if count < 2:
+#                 count += 1
+#             else:
+#                 if count == 2:
+#                     print('calling stop')
+#                     count = 99
+#                     ble.stop()
 
         except Exception as err: 
             sys.print_exception(err)  
             restart(display)    
 
-#         machine.deepsleep(10000)
+#         machine.lightsleep(5000)
         await asyncio.sleep_ms(5000)
+
 
 async def blink_task(station):
     print('blink task started')
@@ -235,7 +237,7 @@ async def blink_task(station):
 #         wdt.feed()
         toggle = not toggle
         led.value(toggle)
-        blink = 500 if station.isconnected() else 250            
+        blink = 500 if station.isconnected() else 100            
         await asyncio.sleep_ms(blink)
 
 
@@ -279,4 +281,3 @@ tasks = [
 
 # wait for them to complete
 asyncio.run( asyncio.gather(*tasks) )
-print('Finished')
