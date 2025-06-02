@@ -19,3 +19,12 @@ rtc.memory(ujson.dumps(d))  # Save in RTC RAM
 r = ujson.loads(rtc.memory())  # Restore from RTC RAM
 # r == {2: 'two', 1: 'one'}
 ~~~
+
+Readtimout is 30 secons, so flushing the buffer will take 30+ seconds
+make the readline() tmeout 1 second, do it 30 times
+
+Add start and stop sensors
+
+std wtd timout is 8secs - so we need to either make sure that we can update the timer, or create a second timer
+
+Add voltage divider so we can report battery voltage

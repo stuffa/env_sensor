@@ -49,4 +49,13 @@ class Display():
     def show(self):
         if self._display_present:
             self._display_dev.show()
+            
+            
+    def power_on(self): 
+        if self._display_present:
+            self._display_dev.poweron()
+        
+    def power_off(self): 
+        if self._display_present:
+            self._display_dev.poweroff()
 

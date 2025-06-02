@@ -44,12 +44,11 @@ _ADV_INTERVAL_MS = 5_000
 
 
 class BleEnvironment():
-    def __init__(self, name='PicoSensors'):
-
-        self._key = ""
-
-        with open('/version.json') as f:
-            ota_version = json.load(f)            
+    
+    _config = None
+    
+    def __init__(self, config):
+        self._config = config
         
         print("Initialising BLE Services")
 
@@ -60,7 +59,7 @@ class BleEnvironment():
         aioble.Characteristic(self._device_info, bluetooth.UUID(_MODEL_NUMBER_ID),     read=True, initial= _MODEL)
         aioble.Characteristic(self._device_info, bluetooth.UUID(_SERIAL_NUMBER_ID),    read=True, initial= utils.uid())
         aioble.Characteristic(self._device_info, bluetooth.UUID(_FIRMWARE_VERSION_ID), read=True, initial= sys.version)
-        aioble.Characteristic(self._device_info, bluetooth.UUID(_SOFTWARE_VERSION_ID), read=True, initial= str(ota_version['version']))
+        aioble.Characteristic(self._device_info, bluetooth.UUID(_SOFTWARE_VERSION_ID), read=True, initial= str(config.version))
                 
 #         self._sensor_info = aioble.Service(_ENV_SENSOR_INFO_UUID)
 #         self._temperature_char = aioble.Characteristic(self._sensor_info, bluetooth.UUID(_TEMPERATURE_ID), read=True, notify=True)
@@ -71,45 +70,18 @@ class BleEnvironment():
 #         self._eco2_char        = aioble.Characteristic(self._sensor_info, bluetooth.UUID(_ECO2_ID),        read=True, notify=True)
         
         self._wifi_info = aioble.Service(_WIFI_SETTINGS_UUID)
-        self._name_char   = aioble.Characteristic(self._wifi_info, _WIFI_NAME_ID,   read=True,  write=True, capture=False)
-        self._ssid_char   = aioble.Characteristic(self._wifi_info, _WIFI_SSID_ID,   read=True,  write=True, capture=False)
+        self._name_char   = aioble.Characteristic(self._wifi_info, _WIFI_NAME_ID,   read=True,  write=True, capture=False, initial=config.name)
+        self._ssid_char   = aioble.Characteristic(self._wifi_info, _WIFI_SSID_ID,   read=True,  write=True, capture=False, initial=config.wifi_ssid)
         self._key_char    = aioble.Characteristic(self._wifi_info, _WIFI_KEY_ID,    read=False, write=True, capture=False)
 #         self._status_char = aioble.Characteristic(self._wifi_info, _WIFI_STATUS_ID, read=True,  write=False, capture=False)
         self._save_char   = aioble.Characteristic(self._wifi_info, _WIFI_SAVE_ID,   read=False, write=True, capture=True)
-        
-        try:
-            with open("config.json", "rt") as f:
-                config = json.load(f)
-        except:
-            config = { 'name': name, 'ssid': '', 'key': '' }
-        
-        
-        if config["name"]:
-            self._name_char.write(config["name"])
-        if config["ssid"]:
-            self._ssid_char.write(config["ssid"])
-        if config["key"]:
-            self._key = config["key"]
-            
+                    
 #         self.update_temperature(0)
 #         self.update_humidity(0)
 #         self.update_pressure(0)
 
         print('registering services')
         aioble.register_services(self._device_info, self._wifi_info)
-
-
-    def wifi_key(self):
-        return self._key
-    
-    
-    def wifi_ssid(self):
-        return self._ssid_char.read().decode("utf-8")
-
-
-    def name(self):
-        return self._name_char.read().decode("utf-8")
-
 
 #     def update_temperature(self, temp):
 #         self._temperature_char.write(int(temp * 100).to_bytes(2, 'little'), send_update=True)
@@ -135,22 +107,14 @@ class BleEnvironment():
     def save_settings(self):
             print("making config")
             
-            # only update the key if one has been provided
-            key = self._key_char.read().decode("utf-8")
-            if key:
-                self._key_char.write('') # clear the key
-                self._key = key
-                
-            config = {
-                "name": self._name_char.read().decode("utf-8"),
-                "ssid": self._ssid_char.read().decode("utf-8"),
-                "key": self._key
-            }
-            print("New Config: " + str(config))
+            self._config.name      = self._name_char.read().decode("utf-8")
+            self._config.wifi_ssid = self._ssid_char.read().decode("utf-8")
+            self._config.wifi_key  = self._key_char.read().decode("utf-8")
+            self._config.save_config()
+
+            # clear the wifi key so it does not leak    
+            self._key_char.write('') # clear the key
             
-            with open("config.json", "wt") as f:
-                json.dump(config, f)
-        
 # 
 #     async def key_task(self):
 #         print("Starting key task")

@@ -141,7 +141,19 @@ class PiicoDev_ENS160(object):
         if _read_bit(device_status, _BIT_DEVICE_STATUS_NEWDAT) is True:
             data = self._read(_REG_DEVICE_STATUS, 6, bytestring=True)
             self._status, self._aqi, self._tvoc, self._eco2 = unpack('<bbhh', data)
-    
+
+    def deepsleep(self):
+        self._write_int(_REG_OPMODE, _VAL_OPMODE_DEEP_SLEEP, 1)
+        opmode = self._read_int(_REG_OPMODE, 1)
+        sleep_ms(20)
+        
+    def wakeup(self):
+        self._write_int(_REG_OPMODE, _VAL_OPMODE_STANDARD, 1)
+        sleep_ms(20)
+        opmode = self._read_int(_REG_OPMODE, 1)
+        sleep_ms(20)
+        
+
     @property    
     def humidity(self):
         return self._read_int(_REG_DATA_RH, 2) / 512
