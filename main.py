@@ -2,11 +2,8 @@
 from PiicoDev_Unified import sleep_ms # cross-platform compatible sleep function
 from PiicoDev_BME280  import PiicoDev_BME280
 from PiicoDev_ENS160  import PiicoDev_ENS160
-# from ble_env_service  import BleEnvironment
-# from display          import Display
 from nbiot            import NB_IoT
 from config           import Config
-# from wifi             import WiFi
 
 import asyncio
 import machine

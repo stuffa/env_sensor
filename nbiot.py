@@ -319,7 +319,7 @@ class NB_IoT:
             return False
 
 
-    def getHTTP(self, host, path):
+    def getHTTP(self, host, path, headers=None):
         content = None
         try:
             resp = self.sendCMD(f'AT+CHTTPCREATE="{host}"', f"HTTP create {host}")

@@ -29,8 +29,9 @@ class Config:
 
 
     def reset(self):
-            self._config = { 'name': self._name, 'sample_count': 4, 'sample_interval': 15, 'tvoc_wait': 3 }
-            self.save()
+        self._config = { 'name': self._name, 'sample_count': 4, 'sample_interval': 15, 'tvoc_wait': 3 }
+        self._dirty = True
+        self.save()
 
 
     def save(self):
