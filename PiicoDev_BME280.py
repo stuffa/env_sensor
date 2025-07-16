@@ -9,6 +9,8 @@ compat_str = '\nUnified PiicoDev library out of date.  Get the latest module: ht
 
 class PiicoDev_BME280:
 
+    _device_present = True
+    
     def __init__(self, bus=None, freq=None, sda=None, scl=None, t_mode=2, p_mode=5, h_mode=1, iir=1, address=0x77):
         try:
             if compat_ind >= 1:
@@ -29,7 +31,9 @@ class PiicoDev_BME280:
             self._T1 = self._read16(0x88)
         except Exception as e:
             print(i2c_err_str.format(self.addr))
-            raise e
+            self._device_present = False
+            return
+        
         self._T2 = self._short(self._read16(0x8A))
         self._T3 = self._short(self._read16(0x8C))
         self._P1 = self._read16(0x8E)
@@ -57,14 +61,20 @@ class PiicoDev_BME280:
         self._write8(0xF5, self.iir<<2)
         
     def _read8(self, reg):
+        if not self._device_present:
+            return 0
         t = self.i2c.readfrom_mem(self.addr, reg, 1)
         return t[0]
 
     def _read16(self, reg):
+        if not self._device_present:
+            return 0
         t = self.i2c.readfrom_mem(self.addr, reg, 2)
         return t[0]+t[1]*256
 
     def _write8(self, reg, dat):
+        if not self._device_present:
+            return 0
         self.i2c.write8(self.addr, bytes([reg]), bytes([dat]))
 
     def _short(self, dat):
@@ -74,6 +84,8 @@ class PiicoDev_BME280:
             return dat
 
     def read_raw_data(self):
+        if not self._device_present:
+            return 0, 0 ,0
         self._write8(0xF4, (self.p_mode << 5 | self.t_mode << 2 | 1))
         sleep_time = 1250
         if self.t_mode in [1, 2, 3, 4, 5]:
@@ -91,6 +103,8 @@ class PiicoDev_BME280:
         return (raw_t, raw_p, raw_h)
 
     def read_compensated_data(self):
+        if not self._device_present:
+            return 0, 0, 0
         try:
             raw_t, raw_p, raw_h = self.read_raw_data()
         except:
@@ -129,15 +143,21 @@ class PiicoDev_BME280:
         return (temp, pres, humi)
 
     def values(self):
+        if not self._device_present:
+            return 0, 0, 0
         temp, pres, humi = self.read_compensated_data()
         return (temp/100, pres/256,  humi/1024)
 
     def pressure_precision(self):
+        if not self._device_present:
+            return 0, 0
         p = self.read_compensated_data()[1]
         pi = float(p // 256)
         pd = (p % 256)/256
         return (pi, pd)
 
     def altitude(self, pressure_sea_level=1013.25):
+        if not self._device_present:
+            return 0
         pi, pd = self.pressure_precision()
         return 44330*(1-((float(pi+pd)/100)/pressure_sea_level)**(1/5.255))

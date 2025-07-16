@@ -73,6 +73,8 @@ def _write_bit(x, n, b):
         return _set_bit(x, n)
 
 class PiicoDev_ENS160(object):
+    _device_present = True
+    
     def __init__(self, bus=None, freq=None, sda=None, scl=None, address=_I2C_ADDRESS, asw=None, intdat=False, intgpr=False, int_cfg=0, intpol=0, temperature=25.0, humidity=50.0):
         if asw == 0: self.address = _I2C_ADDRESS
         elif asw == 1: self.address = _I2C_ADDRESS - 1
@@ -110,9 +112,12 @@ class PiicoDev_ENS160(object):
             self.humidity = humidity
         except Exception as e:
             print(i2c_err_str.format(self.address))
-            raise e
+            self._device_present = False
+            return
         
     def _read(self, register, length=1, bytestring=False):
+        if not self._device_present:
+            return 0
         try:
             d= self.i2c.readfrom_mem(self.address, register, length)
             if bytestring: return bytes(d)
@@ -124,6 +129,8 @@ class PiicoDev_ENS160(object):
         
         
     def _write(self, register, data):
+        if not self._device_present:
+            return 0
         try:
             return self.i2c.writeto_mem(self.address, register, data)
         except:
@@ -131,23 +138,33 @@ class PiicoDev_ENS160(object):
             return None
 
     def _read_int(self, register, length=1):
+        if not self._device_present:
+            return 0
         return int.from_bytes(self._read(register, length),'little')
 
     def _write_int(self, register, integer, length=1):
+        if not self._device_present:
+            return 0
         return self._write(register, int.to_bytes(integer,length,'little'))
 
     def _read_data(self):
+        if not self._device_present:
+            return 0
         device_status = self._read_int(_REG_DEVICE_STATUS)
         if _read_bit(device_status, _BIT_DEVICE_STATUS_NEWDAT) is True:
             data = self._read(_REG_DEVICE_STATUS, 6, bytestring=True)
             self._status, self._aqi, self._tvoc, self._eco2 = unpack('<bbhh', data)
 
     def deepsleep(self):
+        if not self._device_present:
+            return 0
         self._write_int(_REG_OPMODE, _VAL_OPMODE_DEEP_SLEEP, 1)
         opmode = self._read_int(_REG_OPMODE, 1)
         sleep_ms(20)
         
     def wakeup(self):
+        if not self._device_present:
+            return 0
         self._write_int(_REG_OPMODE, _VAL_OPMODE_STANDARD, 1)
         sleep_ms(20)
         opmode = self._read_int(_REG_OPMODE, 1)
@@ -156,53 +173,77 @@ class PiicoDev_ENS160(object):
 
     @property    
     def humidity(self):
+        if not self._device_present:
+            return 0
         return self._read_int(_REG_DATA_RH, 2) / 512
     
     @humidity.setter
     def humidity(self, humidity):
+        if not self._device_present:
+            return
         self._write_int(_REG_RH_IN, int(humidity) * 512, 2)
     
     @property
     def temperature(self):
+        if not self._device_present:
+            return 0
         kelvin = self._read_int(_REG_DATA_T, 2) / 64
         return kelvin - 273.15
     
     @temperature.setter
     def temperature(self, temperature):
+        if not self._device_present:
+            return
         kelvin = temperature + 273.15
         self._write_int(_REG_TEMP_IN, int(kelvin * 64), 2)
     
     @property
     def status(self):
+        if not self._device_present:
+            return 0
         self._read_data()
         return self._status
     
     @property
     def status_statas(self):
+        if not self._device_present:
+            return 0
         return _read_bit(self.status, _BIT_DEVICE_STATUS_STATAS)
     
     @property
     def status_stater(self):
+        if not self._device_present:
+            return 0
         return _read_bit(self.status, _BIT_DEVICE_STATUS_STATER)
     
     @property
     def status_newdat(self):
+        if not self._device_present:
+            return 0
         return _read_bit(self.status, _BIT_DEVICE_STATUS_NEWDAT)
     
     @property
     def status_newgpr(self):
+        if not self._device_present:
+            return 0
         return _read_bit(self.status, _BIT_DEVICE_STATUS_NEWGPR)
     
     @property
     def status_validity_flag(self):
+        if not self._device_present:
+            return 0
         return _read_crumb(self.status, _BIT_DEVICE_STATUS_VALIDITY_FLAG)
     
     @property
     def operation(self):
+        if not self._device_present:
+            return "No device"
         return ['operating ok', 'warm-up', 'initial start-up', 'no valid output'][self.status_validity_flag]
     
     @property
     def aqi(self):
+        if not self._device_present:
+            return 0
         self._read_data()
         if self._aqi is not None:
             ratings={0: 'invalid', 1:'excellent', 2:'good', 3:'moderate', 4:'poor', 5:'unhealthy'}
@@ -213,6 +254,8 @@ class PiicoDev_ENS160(object):
 
     @property
     def tvoc(self):
+        if not self._device_present:
+            return 0
         self._read_data()
         if self._tvoc is not None:
             return self._tvoc
@@ -221,6 +264,8 @@ class PiicoDev_ENS160(object):
     
     @property
     def eco2(self):
+        if not self._device_present:
+            return 0
         self._read_data()
         if self._eco2 is not None:
             eco2 = self._eco2

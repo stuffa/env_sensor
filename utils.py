@@ -17,6 +17,31 @@ def uid():
 def rjust(s, n):
     return "".join((" "*(n - len(s)), s))
 
+
 def titleise(s):
      return "".join([w[0].upper() + w[1:] for w in s.split()])
 
+
+# def is_pico_w():
+#     return sys.implementation._machine.startswith("Raspberry Pi Pico W")
+
+
+def get_vsys():
+    conversion_factor = 3 * 3.3 / 65535
+
+    # make sure pin 25 (LED) is high. - required for reading vsys
+    led = machine.Pin(25, mode=machine.Pin.OUT)
+    led.high()
+
+    # Reconfigure pin 29 as an input, required for ADC use
+    machine.Pin(29, machine.Pin.IN)
+    vsys = machine.ADC(29).read_u16() * conversion_factor
+
+    # return the LED to a low/off state to save power
+    led.low()
+    return vsys
+
+
+if __name__ == "__main__":
+    test_voltage = get_vsys()
+    print(f"Battery: {test_voltage} Volts")

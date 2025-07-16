@@ -2,14 +2,14 @@
 from PiicoDev_Unified import sleep_ms # cross-platform compatible sleep function
 from PiicoDev_BME280  import PiicoDev_BME280
 from PiicoDev_ENS160  import PiicoDev_ENS160
-from nbiot            import NB_IoT
+from nbiot            import NBIoT
 from config           import Config
+from ota_update       import OTAUpdate
 
 import asyncio
 import machine
 import sys
 import utils
-import ota_update
 import time
 import io
 import json
@@ -17,14 +17,14 @@ import json
 
 def wait_for_startup_interrupt():
     count = 5
-    print(f"Wait for user interrupt ({count}) secs")
+    if debug: print(f"Wait for user interrupt ({count}) secs")
     while count:
         sleep_ms(1000)
         count -= 1
 
 
 async def wdt_task():
-    print('WDT task started')
+    if debug: print('WDT task started') 
 
     interval = 1000    
     wdt    = machine.WDT(timeout = 8388) # Start the watchdog 8.388 seconds
@@ -33,20 +33,6 @@ async def wdt_task():
         wdt.feed()
         await asyncio.sleep_ms(interval)
 
-
-def get_battery_level():
-    # Setup pins
-    machine.Pin(25, machine.Pin.OUT, value=1)  # Deselect Wi-Fi module
-    machine.Pin(29, machine.Pin.IN, pull=None)  # Set VSYS ADC pin floating
-
-    # VSYS measurement
-    vsys_adc = machine.ADC(29)
-    vsys = (vsys_adc.read_u16() / 65535) * 3 * 3.3
-    
-    print(f"Batt: {vsys}")
-
-    return vsys
-
 #############################
 #    main
 #############################
@@ -54,106 +40,118 @@ def get_battery_level():
 # Slow down the clock to save power
 machine.freq(48_000_000)
 
-try:
-    # check if we have an NB_IoT device
-    net = NB_IoT()
-    uid = utils.uid()      # The id sent to the mqtt server
-    env = PiicoDev_BME280() # initialise the env sensor
-    air = PiicoDev_ENS160() # initialise the aqi sensor 
-    config = Config()
+debug = False
+if utils.console_connected():
+    debug = True
 
-    rc = machine.reset_cause()
-    rc_reason = "unknown"
+net    = NBIoT()
+uid    = utils.uid()       # The id sent to the mqtt server
+env    = PiicoDev_BME280() # initialise the env sensor
+air    = PiicoDev_ENS160() # initialise the aqi sensor
+config = Config()
+
+mqtt_base_topic = "sensors/circulait"
+
+rc = machine.reset_cause()
+rc_reason = "unknown"
+if debug:
     print(f"Reset Code: {rc}")
 
-    # DEEPESLEEP_RESET is not defined
-#     if rc == machine.DEEPSLEEP_RESET:
+try:
+    # This is all about displaying the reason for a restart
+    # and then recovering appropriately.
+    # Depending on the reset reason, there is an opportunity
+    # to do stuff that we need only for that particular startup case
+#   DEEPESLEEP_RESET is not defined
+#   if rc == machine.DEEPSLEEP_RESET:
+#       rc_reason = "DeepSleepReset"
+#       if debug:
 #         print("DeepSleep Reset")
-#         rc_reason = "DeepSleepReset"
 
-    # HARD_RESET is not defined
-#     if rc == machine.HARD_RESET:
-#         print("Hard Reset")
-#         rc_reason = "HardReset"
+#   HARD_RESET is not defined
+#   if rc == machine.HARD_RESET:
+#       rc_reason = "HardReset"
+#       if debug:
+#           print("Hard Reset")
+
+#   SOFT_RESET is not defined
+#   elif rc == machine.SOFT_RESET:
+#       rc_reason = "SoftReset"
+#       if debug:
+#           print("Soft Reset")
+#           # allow time for a developer to stop the process for debugging
+#           # before starting the watchdog
+#           wait_for_startup_interrupt()
 
     if rc == machine.PWRON_RESET:
-        print("POWER_ON reset")
         rc_reason = "PowerOn"
         # allow time for a developer to stop the process for debugging
         # before starting the watchdog
-        if utils.console_connected():
+        if debug:
+            print("POWER_ON reset")
             wait_for_startup_interrupt()
-            # reset the network
             net.factory_reset()
         
     #     if ota_update.update_available():
-    #         print('OTA Update available')
+    #         if debug: print('OTA Update available')
     #         ota_update.pull_all()
-    #         print('OTA Update Completed')
+    #         if debug: print('OTA Update Completed')
     #     else:
-    #         print('No OTA update')
+    #         if debug: print('No OTA update')
 
-    # SOFT_RESET is not defined
-#     elif rc == machine.SOFT_RESET:
-#         print("Soft Reset")
-#         rc_reason = "SoftReset"
-#         # allow time for a developer to stop the process for debugging
-#         # before starting the watchdog
-#         if utils.console_connected():
-#             wait_for_startup_interrupt()
 
     elif rc == machine.WDT_RESET:
-        print("Watchdog Reset")
         rc_reason = "WatchDog"
         # allow time for a developer to stop the process for debugging
         # before starting the watchdog
-        if utils.console_connected():
+        if debug:
+            print("Watchdog Reset")
             wait_for_startup_interrupt()
         # send wdt packet to server
         # attempt a firmware update
-    
+
     else:
-        print("Unknown Reset Reason")
+        if debug:
+            print("Unknown Reset Reason")
         pass
 
 
-
+    
+    # do stuff that we only do once-off at startup
     if net.enable():
-        # do stuff that we only do once-off at start
+        # get the configuration from the server and update the config object
+        content = net.get_http("https://accelerate-advantage-b6d76071507e.herokuapp.com/", f"/api/sensors/{uid}")
+        if debug:
+            print(f"content: {content}")
 
-        # upgrade
-#         net.OTA_upgade()
-
-
-        # get the configutaion from the server, and update the config object
-        content = net.getHTTP("https://accelerate-advantage-b6d76071507e.herokuapp.com/", f"/api/sensors/{uid}")
-        print(f"content: {content}")
         if content:
             config.update(json.loads(content))
-            config.save
+            config.save()
 
         # send a start message
         t = time.gmtime()
-        topic = f'environment/{uid}/start'
+        topic = f"{mqtt_base_topic}/start"
         msg = {
                 "u": uid,
-                "n": config.getVal('name'),
-                "b": get_battery_level(),
+                "v": config.get_version(),
+                "b": utils.get_vsys(),
                 "r": rc_reason,
                 "utc": "{}-{:02d}-{:02d}T{:02d}:{:02d}:{:02d}".format(t[0], t[1], t[2], t[3], t[4], t[5]),
-
         }
-        net.sendMQTT(topic, msg)
+        net.send_mqtt(topic, msg)
+    
     net.disable()
 
-    print("Polling task started")
+    if debug:
+        print("Polling task started")
 
-    count = 0
-    sample_count = 0
+    total_count = 0
+    env_count = 0
     env_data = []
-    
+
     while True:
-        print("taking an env sample")
+        if debug:
+            print("taking an env sample")
         
         temp, pressure, humidity = env.values() # read all data from the sensor
         t = time.gmtime()
@@ -163,23 +161,24 @@ try:
             "p": pressure,
             "h": humidity,
             "utc": "{}-{:02d}-{:02d}T{:02d}:{:02d}:{:02d}".format(t[0], t[1], t[2], t[3], t[4], t[5]),
-            "i": sample_count
+            "i": env_count
         }
         
         env_data.append(data)
-        print(f"env: {data}")
+        if debug: print(f"env: {data}")
 
-        sample_count += 1
-        count += 1
-        if (sample_count >= config.getVal('sample_count')):
-            sample_count = 0
+        env_count += 1
+        total_count += 1
+        if env_count >= config.getVal('sample_count'):
+            env_count = 0
             
-            print("Wait for sensor to be ready...")
+            if debug: print("Wait for sensor to be ready...")
             air.wakeup()
             
             time.sleep(config.getVal('tvoc_wait') * 60)
             
-            print("taking a tvoc sample")
+            if debug:
+                print("taking a tvoc sample")
         
             air.temperature = temp
             air.humidity    = humidity
@@ -188,40 +187,46 @@ try:
             eco2 = air.eco2
             aqi  = air.aqi
 
+            if debug:
+                print("deepsleep air")
 
-            print("deepsleep air")
             air.deepsleep()
-    
+
             tvoc = {
                 "a": aqi.value,
                 "t": tvoc,
                 "e": eco2.value,
-                "utc": "{}-{:02d}-{:02d}T{:02d}:{:02d}:{:02d}".format(t[0], t[1], t[2], t[3], t[4], t[5]),
-
+                "utc": "{}-{:02d}-{:02d}T{:02d}:{:02d}:{:02d}".format(t[0], t[1], t[2], t[3], t[4], t[5])
             }
 
             t = time.gmtime()
-            topic = f'environment/{uid}/data'
+            topic = f'{mqtt_base_topic}/data'
 
-            print("Build message")
+            if debug:
+                print("Build message")
+
             msg = {
                 "u": uid,
-                "i": count,
+                "i": total_count,
                 "n": config.getVal('name'),
-                "b": get_battery_level(),
+                "b": utils.get_vsys(),
                 "e": env_data,
                 "t": tvoc
             }
+            if debug:
+                print(msg)
+
             env_data = []
-            
-            print(msg)
-            
+
+            # TODO: If we dont succeed try again
             if net.enable():        
-                net.sendMQTT(topic, msg)
+                net.send_mqtt(topic, msg)
      
             net.disable()
                     
-        print(f"sleeping for next sample. count: {count}")
+        if debug:
+            print(f"sleeping for next sample. count: {total_count}")
+
         time.sleep(config.getVal('sample_interval') * 60)
 
 except Exception as e:
@@ -232,24 +237,25 @@ except Exception as e:
         traceback_array = traceback_str.splitlines()
         t = time.gmtime()
         msg = {
-            "i": uid,
+            "u": uid,
             "v": config.get_version(),
             "t": type(e).__name__,
             "a": e.args,
-            "t":  traceback_array,
+            "tb": traceback_array,
             "utc": "{}-{:02d}-{:02d}T{:02d}:{:02d}:{:02d}".format(t[0], t[1], t[2], t[3], t[4], t[5]),
         }
+        if debug:
+            print(msg)
         
-        topic = f"environment/{uid}/exception"
+        topic = f"{mqtt_base_topic}/exception"
         
         net.disable()
         if net.enable():
-            net.sendMQTT(topic, msg)
+            net.send_mqtt(topic, msg)
         net.disable()
-                
-        
+
     machine.reset()
-#     sys.exit(-1)
+
 
 # Start the tasks
 #tasks = [

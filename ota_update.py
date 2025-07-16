@@ -1,13 +1,12 @@
 
-# Pulls files and folders from open GitHub repository
+# Pulls files and folders from a GitHub repository
 
 import os
-# import urequests
 import json
 import machine
 import time
 
-class OTA_Update:
+class OTAUpdate:
 
     # Repository must be public if no personal auth token is supplied
     user = 'stuffa'
@@ -20,7 +19,7 @@ class OTA_Update:
     kept_files = ('/config.json',)
 
 
-    # Put the files you don't want copied from the repository - if they exist they are deleted
+    # Put the files you don't want copied from the repository - if they exist, they are deleted
     # Do not put any "kept_files" in here as they will be deleted
     ignored_files = ('/.gitignore', '/README.md', '/ToDo.txt', '/config_test.json',)
 
@@ -39,16 +38,16 @@ class OTA_Update:
 
 
     def __init__(self, net):
-        self._net = net
+        self.net = net
 
 
     def get_latest_version(self):
         raw_path = self.git_raw_path + 'version.json'
         headers = { 'User-Agent': f'{self.user}/{self.repository}' } # GitHub Requires user-agent header otherwise 403
         if len(self.token) > 0:
-            headers['authorization'] = "bearer %s" % token
+            headers['authorization'] = "bearer %s" % self.token
 
-        r = self._net.getHTTP(self.git_raw_host, raw_path, headers)
+        r = self.net.get_http(self.git_raw_host, raw_path, headers)
         print(f'http: {r}')
         try:
             ota_latest = json.loads(r)
@@ -70,11 +69,11 @@ class OTA_Update:
     def _pull(self, f_path, raw_url):
         print(f'pulling {f_path} from github')
         try:
-            headers = { 'User-Agent': f'{user}/{repository}' } # GitHub Requires user-agent header otherwise 403
-            if len(token) > 0:
-                headers['authorization'] = "bearer %s" % token
+            headers = { 'User-Agent': f'{self.user}/{self.repository}' } # GitHub Requires user-agent header otherwise 403
+            if len(self.token) > 0:
+                headers['authorization'] = "bearer %s" % self.token
 
-            r = urequests.get(raw_url, headers=headers)
+            r = self.net.get_http(raw_url, headers=headers)
 
             with open(f_path, 'w') as new_file:
                 new_file.write(r.content.decode('utf-8'))
@@ -87,10 +86,10 @@ class OTA_Update:
     def pull_all(self, base_url = git_raw_url):
         git_tree = self._pull_git_tree()
         local_tree = self._build_local_tree()
-        local_tree = self._remove_files_from_tree(local_tree, kept_files)
+        local_tree = self._remove_files_from_tree(local_tree, self.kept_files)
 
         # walk the git tree and make sure we have all the directories
-        # cant be sure that the tree has tree nodes first
+        #  can't be sure that the tree has tree nodes first
         for i in git_tree:
             if i['type'] == 'tree':
                 f_path = '/' + i['path']
@@ -100,7 +99,7 @@ class OTA_Update:
                 except:
                     print(f'failed to create directory {f_path}: dir may already exist')
 
-        # Now dowload each file
+        # Download each file
         for i in git_tree:
             if i['type'] == 'blob':
                 f_path = '/' + i['path']
@@ -119,9 +118,9 @@ class OTA_Update:
         machine.reset()
 
 
-    # the local_tree does not contain directries
-    # thsi means that if we have removed a directory the files in the directory will be deleted
-    # but the empty directry wil remain
+    # the local_tree does not contain directories,
+    # this means that if we have removed a directory, the files in the directory will be deleted
+    # but the empty directory will remain
     def _build_local_tree(self):
         new_tree = []
         os.chdir('/')
@@ -131,7 +130,7 @@ class OTA_Update:
 
 
     def _add_to_tree(self, tree, dir_item):
-        if is_directory(dir_item) and len(os.listdir(dir_item)) >= 1:
+        if self._is_directory(dir_item) and len(os.listdir(dir_item)) >= 1:
             os.chdir(dir_item)
             for i in os.listdir():
                 self._add_to_tree(tree, i)
@@ -156,16 +155,16 @@ class OTA_Update:
 
 
     def _pull_git_tree(self, tree_url = git_tree_url):
-        headers = { 'User-Agent': f'{user}/{repository}' }   # GitHub Requires user-agent header otherwise 403
-        if len(token) > 0:
-            headers['authorization'] = "bearer %s" % token
+        headers = { 'User-Agent': f'{self.user}/{self.repository}' }   # GitHub Requires user-agent header otherwise 403
+        if len(self.token) > 0:
+            headers['authorization'] = "bearer %s" % self.token
 
-        r = urequests.get(tree_url,headers=headers)
+        r = self.net.get_http(tree_url, headers=headers)
         data = json.loads(r.content.decode('utf-8'))
 
         if 'tree' not in data:
-            print(f'\nBranch "{branch}" not found. Set "branch" variable to your branch.\n')
-            raise Exception(f'Branch {branch} not found.')
+            print(f'\nBranch "{self.branch}" not found. Set "branch" variable to your branch.\n')
+            raise Exception(f'Branch {self.branch} not found.')
 
         # prune the tree, keep only the data we need    
         git_tree = []
@@ -196,11 +195,11 @@ class OTA_Update:
 
 # Testing
 if __name__ == "__main__":
-    from nbiot import NB_IoT
+    from nbiot import NBIoT
     
-    nbiot = NB_IoT()
+    nbiot = NBIoT()
     nbiot.enable()
-    ota = OTA_Update(nbiot)
+    ota = OTAUpdate(nbiot)
     
     print(f'Latest Version: {ota.get_latest_version()}')
 #     print(ota.update_available())

@@ -1,12 +1,7 @@
 
-add BLE security
+Add Alarm (i.e. send when temp above/below) possibly changing sample rate as well
 
-restrict how long BLE runs - conserver batter - 5min after startup
-but waht about BLE BTHome bcasts - maybe we make then a seperate service
-
-Add Alarm (ie send when temp above/below) possibly changing sample rate as well
-
-Add datalogging for when the network is unavaialbe - sent data latter when it is (may require a RTC for time stamps)
+Add datalogging for when the network is unavailable - sent data latter when it is (may require a RTC for time stamps)
 
 Deepsleep - data may be able to be retained by saving the RTC memory (machine.RTC.memory())
 ~~~
@@ -20,11 +15,8 @@ r = ujson.loads(rtc.memory())  # Restore from RTC RAM
 # r == {2: 'two', 1: 'one'}
 ~~~
 
-Readtimout is 30 secons, so flushing the buffer will take 30+ seconds
-make the readline() tmeout 1 second, do it 30 times
+std watchdog timout is 8secs - so we need to either make sure that we can update the timer, or create a second timer
 
-Add start and stop sensors
+add SSL
+add Firmware update OTA
 
-std wtd timout is 8secs - so we need to either make sure that we can update the timer, or create a second timer
-
-Add voltage divider so we can report battery voltage
