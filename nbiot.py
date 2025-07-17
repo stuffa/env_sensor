@@ -134,7 +134,6 @@ class NBIoT:
         print('--- NB-IoT Factory Reset')
         self.wakeup()
         self.wait_for_at()
-        self.wait_for("+CPIN:")
 
         try:            
             resp = self.send_cmd("AT+CPIN?", "Check Pin")
@@ -345,14 +344,6 @@ class NBIoT:
 
         # wake up the chip
         self.nbiotEnable.high()
-
-#         resp = self.wait_for("+CPIN:")
-#         if resp == "READY":
-#             self.flush_uart()
-#             return True
-#         
-#         return False
-        self.wait_for("+CPIN:")
 
 
     def asleep(self):
