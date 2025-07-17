@@ -19,4 +19,5 @@ std watchdog timout is 8secs - so we need to either make sure that we can update
 
 add SSL
 add Firmware update OTA
+change credentials from mimos
 

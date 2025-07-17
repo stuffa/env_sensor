@@ -17,5 +17,9 @@ communicated with. This causes problems, do we wait for the unsolicited messages
 or do we send an AT command and wait for the response.
 
 The NB-IoT libray makes use of the sendCMD() method
-This method in turm uses the 
+This method in turm uses the
+
+The SIM7020e comes with a default configuration that includes echo (ATE1)
+however after a factory-reset (AT&F) the configuration is different to shipping defaults
+for example, echo is disabled
 
