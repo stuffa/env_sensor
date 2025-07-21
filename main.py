@@ -51,6 +51,8 @@ air    = PiicoDev_ENS160() # initialise the aqi sensor
 config = Config()
 
 mqtt_base_topic = "sensors/circulait"
+mqtt_server = "mqtt.at.martin.cc"
+rails_server = "accelerate-advantage-b6d76071507e.herokuapp.com"
 
 rc = machine.reset_cause()
 rc_reason = "unknown"
@@ -91,6 +93,8 @@ try:
             print("POWER_ON reset")
             wait_for_startup_interrupt()
             net.factory_reset()
+            net.disable()
+            time.sleep(3)
         
     #     if ota_update.update_available():
     #         if debug: print('OTA Update available')
@@ -120,25 +124,28 @@ try:
     # do stuff that we only do once-off at startup
     if net.enable():
         # get the configuration from the server and update the config object
-        content = net.get_http("https://accelerate-advantage-b6d76071507e.herokuapp.com/", f"/api/sensors/{uid}")
-        if debug:
-            print(f"content: {content}")
-
-        if content:
-            config.update(json.loads(content))
-            config.save()
+#         net.dns_lookup(rails_server)  # this will force a wait for the dns
+#         content = net.get_http(f"https://{rails_server}/", f"/api/sensors/{uid}")
+#         if debug:
+#             print(f"content: {content}")
+# 
+#         if content:
+#             config.update(json.loads(content))
+#             config.save()
 
         # send a start message
-        t = time.gmtime()
-        topic = f"{mqtt_base_topic}/start"
-        msg = {
-                "u": uid,
-                "v": config.get_version(),
-                "b": utils.get_vsys(),
-                "r": rc_reason,
-                "utc": "{}-{:02d}-{:02d}T{:02d}:{:02d}:{:02d}".format(t[0], t[1], t[2], t[3], t[4], t[5]),
-        }
-        net.send_mqtt(topic, msg)
+        ip = net.dns_lookup(mqtt_server)
+        if ip:
+            t = time.gmtime()
+            topic = f"{mqtt_base_topic}/start"
+            msg = {
+                    "u": uid,
+                    "v": config.get_version(),
+                    "b": utils.get_vsys(),
+                    "r": rc_reason,
+                    "utc": "{}-{:02d}-{:02d}T{:02d}:{:02d}:{:02d}".format(t[0], t[1], t[2], t[3], t[4], t[5]),
+            }
+            net.send_mqtt(ip, topic, msg)
     
     net.disable()
 
@@ -150,80 +157,90 @@ try:
     env_data = []
 
     while True:
-        if debug:
-            print("taking an env sample")
-        
-        temp, pressure, humidity = env.values() # read all data from the sensor
-        t = time.gmtime()
-        
-        data = {
-            "t": temp,
-            "p": pressure,
-            "h": humidity,
-            "utc": "{}-{:02d}-{:02d}T{:02d}:{:02d}:{:02d}".format(t[0], t[1], t[2], t[3], t[4], t[5]),
-            "i": env_count
-        }
-        
-        env_data.append(data)
-        if debug: print(f"env: {data}")
+
+        if env._device_present:
+            if debug:
+                print("taking an env sample")
+
+            temp, pressure, humidity = env.values() # read all data from the sensor
+            t = time.gmtime()
+            
+            data = {
+                "t": temp,
+                "p": pressure,
+                "h": humidity,
+                "utc": "{}-{:02d}-{:02d}T{:02d}:{:02d}:{:02d}".format(t[0], t[1], t[2], t[3], t[4], t[5]),
+                "i": env_count
+            }
+            
+            env_data.append(data)
+            if debug: print(f"env: {data}")
 
         env_count += 1
         total_count += 1
+        
         if env_count >= config.getVal('sample_count'):
             env_count = 0
+            tvoc = {}
             
-            if debug: print("Wait for sensor to be ready...")
-            air.wakeup()
+            if air._device_present:                
+                if debug: print("Wait for sensor to be ready...")
+                air.wakeup()
+                
+                time.sleep(config.getVal('tvoc_wait') * 60)
+                
+                if debug:
+                    print("taking a tvoc sample")
             
-            time.sleep(config.getVal('tvoc_wait') * 60)
-            
-            if debug:
-                print("taking a tvoc sample")
-        
-            air.temperature = temp
-            air.humidity    = humidity
-            
-            tvoc = air.tvoc
-            eco2 = air.eco2
-            aqi  = air.aqi
+                air.temperature = temp
+                air.humidity    = humidity
+                
+                tvoc = air.tvoc
+                eco2 = air.eco2
+                aqi  = air.aqi
+                t    = time.gmtime() # get time again as we had to wait for the heater, to heat up
 
-            if debug:
-                print("deepsleep air")
+                if debug:
+                    print("deepsleep air")
 
-            air.deepsleep()
+                air.deepsleep()
 
-            tvoc = {
-                "a": aqi.value,
-                "t": tvoc,
-                "e": eco2.value,
-                "utc": "{}-{:02d}-{:02d}T{:02d}:{:02d}:{:02d}".format(t[0], t[1], t[2], t[3], t[4], t[5])
-            }
-
-            t = time.gmtime()
-            topic = f'{mqtt_base_topic}/data'
+                tvoc = {
+                    "a": aqi.value,
+                    "t": tvoc,
+                    "e": eco2.value,
+                    "utc": "{}-{:02d}-{:02d}T{:02d}:{:02d}:{:02d}".format(t[0], t[1], t[2], t[3], t[4], t[5])
+                }
 
             if debug:
                 print("Build message")
 
+            t = time.gmtime()
             msg = {
                 "u": uid,
                 "i": total_count,
-                "n": config.getVal('name'),
                 "b": utils.get_vsys(),
                 "e": env_data,
-                "t": tvoc
+                "t": tvoc,
+                "utc": "{}-{:02d}-{:02d}T{:02d}:{:02d}:{:02d}".format(t[0], t[1], t[2], t[3], t[4], t[5])
             }
             if debug:
                 print(msg)
 
-            env_data = []
-
-            # TODO: If we dont succeed try again
-            if net.enable():        
-                net.send_mqtt(topic, msg)
+            topic = f"{mqtt_base_topic}/data"
+    
+            # TODO: If we don't succeed try again
+            if net.enable():
+                ip = net.dns_lookup(mqtt_server)
+                msg["rssi"] = net.rssi()
+                if ip:
+                    net.send_mqtt(ip, topic, msg)
      
             net.disable()
-                    
+            
+            env_data = []
+            tvoc     = {}
+
         if debug:
             print(f"sleeping for next sample. count: {total_count}")
 
@@ -251,7 +268,9 @@ except Exception as e:
         
         net.disable()
         if net.enable():
-            net.send_mqtt(topic, msg)
+            ip = net.dns_lookup(mqtt_server)
+            if ip:
+                net.send_mqtt(ip, topic, msg)
         net.disable()
 
     machine.reset()

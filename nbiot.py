@@ -69,21 +69,12 @@ class NBIoT:
         if self.enabled:
             print("ERROR: enable() reentered - calling disable()")
             self.disable()
+            time.sleep(3)
 
-        self.wakeup()    # enable the chip
-
+        if not self.wakeup():    # enable the chip
+            return False
+        
         try:
-            print("Checking NB-IoT chip access")
-            self.wait_for_at()
-            self.flush_uart()
-
-            resp = self.send_cmd("AT+CPIN?", "Check Pin")
-            data = self.parse_for("+CPIN:", resp)
-            state = data.strip()
-            print(f'state: {state}')
-            if not state == "READY":
-                return False
-
             # Get the signal strength
             print("Get Signal strength...")
             resp = self.send_cmd("AT+CSQ", "Get Signal Strength")
@@ -132,25 +123,17 @@ class NBIoT:
 
     def factory_reset(self):
         print('--- NB-IoT Factory Reset')
-        self.wakeup()
-        self.wait_for_at()
+        if not self.wakeup():
+            return False
 
-        try:            
-            resp = self.send_cmd("AT+CPIN?", "Check Pin")
-            data = self.parse_for("+CPIN:", resp)
-            state = data.strip()
-            if not state == "READY":
-                return False
-
+        try:
             self.send_cmd("AT&F", "Reset NB-IoT NVRAM")
-
-            # there is no OK reply to the command.
-            # so, let's just wait till it responds to AT messages
+            time.sleep(1)
             self.wait_for_at()
-            self.flush_uart() # make sure we don't leave and AT responses
 
-#             self.send_cmd('ATE1', "Enable Echo")
-            self.send_cmd('AT*MCGDEFCONT="IP"', "Setting PDP Type: IP")  # set the PDP type
+            self.send_cmd('ATE1', "Enable Echo")
+            self.send_cmd('AT*MCGDEFCONT="IP"', 'Setting PDP Type: IP')
+            self.send_cmd('AT+CNMI=0,0,0,0,0',  'Disable SMS messages')   
         except (NbiotCommandTimeout, NbiotCommandError):
             return False
 
@@ -163,10 +146,9 @@ class NBIoT:
         except NbiotCommandError:
             return False
 
-        self.disable()
         return True
 
-    def send_mqtt(self, topic, json_message, server="mqtt.at.martin.cc", port=1883, version=4):
+    def send_mqtt(self, server, topic, json_message, port=1883, version=4):
         print('--- NB-IoT MQTT Send')
 
         mqtt_delay = 1
@@ -197,8 +179,6 @@ class NBIoT:
 
                 time.sleep(mqtt_delay)
 
-                # add extra data to the payload
-                json_message['rssi'] = self.rssi()
                 payload = json.dumps(json_message).encode().hex()
                 length = len(payload)
 
@@ -221,7 +201,7 @@ class NBIoT:
         return False
     
     
-    def send_http(self, path, json_message, server="mqtt.at.martin.cc", port=80):
+    def send_http(self, server, path, json_message, port=80):
         print('--- NB-IoT HTTP Send')
         try:
             resp = self.send_cmd(f'AT+CHTTPCREATE="http://{server}:{port}/"', "New HTTP instance")
@@ -324,12 +304,13 @@ class NBIoT:
 ##################################################################
 
     def disconnect_mqtt(self, mqtt_id):
-        time.sleep(1)
-        try:
-            self.send_cmd(f"AT+CMQDISCON={mqtt_id}", "Disconnect from MQTT server")
-        except (NbiotCommandError, NbiotCommandTimeout):
-            pass
-        time.sleep(1)
+        if mqtt_id:
+            time.sleep(1)
+            try:
+                self.send_cmd(f"AT+CMQDISCON={mqtt_id}", "Disconnect from MQTT server")
+            except (NbiotCommandError, NbiotCommandTimeout):
+                pass
+            time.sleep(1)
 
 
     def awake(self):
@@ -341,9 +322,13 @@ class NBIoT:
         if self.awake():
             print("NB-IoT is already awake - put it to sleep first")
             self.goto_sleep()
+            time.sleep(1) 
 
         # wake up the chip
         self.nbiotEnable.high()
+        self.wait_for_at()
+        resp = self.wait_for("+CPIN:")
+        return resp == "READY"
 
 
     def asleep(self):
@@ -385,24 +370,38 @@ class NBIoT:
                 return
                 
 
-    def send_cmd(self, cmd, comment=None):
+    def send_cmd(self, cmd, comment=None, check_echo=True):
         if comment:
             print(comment + " ... ", end="")
 
         self.uart.write((cmd+'\r\n').encode())
-        status, data = self.read_uart()
-
-        if comment:
-            if status == True:
+        
+        while True:
+            status, data = self.read_uart()
+            
+            if not check_echo:
+                break
+            
+            if status == None:
+                break
+            
+            if data: 
+                if not self.parse_for(cmd, data) == None:
+                    break
+        
+        if status == True:
+            if comment:
                 print(f"OK: {data}")
-                return data
+            return data
 
-            elif status == False:
+        elif status == False:
+            if comment:
                 print(f"ERROR: {data}")
-                raise NbiotCommandError(f"nbiot command error: {cmd}", data)
-            else:
+            raise NbiotCommandError(f"nbiot command error: {cmd}", data)
+        else:
+            if comment:
                 print(f"TIMEOUT: {data}")
-                raise NbiotCommandTimeout(f"nbiot command timeout: {cmd}", data)
+            raise NbiotCommandTimeout(f"nbiot command timeout: {cmd}", data)
 
 
     # Waits for an unsolicited message
@@ -423,7 +422,7 @@ class NBIoT:
 
 
     # This will loop waiting for AT command to respond
-    def wait_for_at(self, attempts=30):
+    def wait_for_at(self, attempts=10):
         print("Wait until chip responds to AT commands")
         while attempts:
             try:
@@ -431,16 +430,17 @@ class NBIoT:
                 break
             
             except (NbiotCommandError, NbiotCommandTimeout):
-                pass
+                continue # loop again
             
             attempts -= 1
         
-        self.flush_uart()
+#         self.flush_uart() # remove any extra OK's
 
         if attempts:
             return True
 
         return False
+
 
     def parse_for(self, prefix, resp):
         print(f"parseFor {prefix} in {resp}")
@@ -453,6 +453,7 @@ class NBIoT:
                 return line[offset:].strip()
 
         return None
+
 
     # report the current RSSI
     def rssi(self):
@@ -484,30 +485,62 @@ class NBIoT:
 
         return None
 
+
     def firmware_version(self):
         resp = self.send_cmd("AT+CGMR", "Get firmware revision")
         return resp[1] # already striped
+
+
+    def dns_lookup(self, host):
+        try:
+            resp = self.send_cmd(f'AT+CDNSGIP="{host}"', f"DNS Lookup: {host}")
+
+            data = self.parse_for("+CDNSGIP:", resp)
+            if not data:
+                data = self.wait_for("+CDNSGIP:")
+            if not data:
+                return False
+
+            params = data.split(",")
+            status = params[0]
+            host_name = params[1].strip('"')
+            ip = params[2].strip('"')
+            
+            if not status == "1":
+                return None
+
+            if not host_name == host:
+                return None
+                
+            return ip
+        
+        except (NbiotCommandError, NbiotCommandTimeout):
+            return False        
 
 
         
 #### Tests ############################
 
 if __name__ == "__main__":
+    import utils
+    
     print("##### Tests #####")
+    print("Initialise NBIoT")
     nbiot = NBIoT()
     print("Wait 5 secs to allow the chip to stablise")
-    time.sleep(5)
+    time.sleep(3)
     
     print("##### Wake Up #####")
-    nbiot.wakeup()
-    nbiot.wait_for_at()
+    if not nbiot.wakeup():
+        nbiot.goto_sleep()
+        sys.exit(-1)
     nbiot.goto_sleep()
-
     print("sleeping 5sec to ensure that the chip is fully asleep")
-    time.sleep(5)
+    time.sleep(3)
     
     print("##### Factory Reset #####")    
     if not nbiot.factory_reset():
+        nbiot.disable()
         sys.exit(-1)
     
     time.sleep(1)    
@@ -522,19 +555,26 @@ if __name__ == "__main__":
 #         nbiot.disable()
 #         sys.exit(-2)
 
+
     print("##### Check Settings #####")    
     if not nbiot.check_settings():
         nbiot.disable()
         sys.exit(-3)
     
-    time.sleep(1)
+    print("##### DNS Lookup #####")
+    ip = nbiot.dns_lookup("mqtt.at.martin.cc")
+    print(f"DNS returned: {ip}")
     
     print("##### Send Data #####")
+    t = time.gmtime()
     json_data = {
+        "u": utils.uid(),
         "t": 25,
-        "p": 50
+        "p": 50,
+        "rssi": nbiot.rssi(),
+         "utc": "{}-{:02d}-{:02d}T{:02d}:{:02d}:{:02d}".format(t[0], t[1], t[2], t[3], t[4], t[5]),
         }
-    if not nbiot.send_mqtt("environment", json_data):
+    if not nbiot.send_mqtt(ip, "sensors/circulait/data", json_data):
         nbiot.disable()
         sys.exit(-4)
     
