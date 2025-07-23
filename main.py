@@ -4,7 +4,7 @@ from PiicoDev_BME280  import PiicoDev_BME280
 from PiicoDev_ENS160  import PiicoDev_ENS160
 from nbiot            import NBIoT
 from config           import Config
-from ota_update       import OTAUpdate
+# from ota_update       import OTAUpdate
 
 import asyncio
 import machine
@@ -12,7 +12,7 @@ import sys
 import utils
 import time
 import io
-import json
+# import json
 
 
 def wait_for_startup_interrupt():
@@ -24,14 +24,15 @@ def wait_for_startup_interrupt():
 
 
 async def wdt_task():
-    if debug: print('WDT task started') 
+    if debug: print('WDT task started')
 
-    interval = 1000    
+    interval = 1000
     wdt    = machine.WDT(timeout = 8388) # Start the watchdog 8.388 seconds
 
     while True:
         wdt.feed()
         await asyncio.sleep_ms(interval)
+
 
 #############################
 #    main
@@ -95,7 +96,7 @@ try:
             net.factory_reset()
             net.disable()
             time.sleep(3)
-        
+
     #     if ota_update.update_available():
     #         if debug: print('OTA Update available')
     #         ota_update.pull_all()
@@ -120,7 +121,7 @@ try:
         pass
 
 
-    
+
     # do stuff that we only do once-off at startup
     if net.enable():
         # get the configuration from the server and update the config object
@@ -128,10 +129,13 @@ try:
 #         content = net.get_http(f"https://{rails_server}/", f"/api/sensors/{uid}")
 #         if debug:
 #             print(f"content: {content}")
-# 
+#
 #         if content:
 #             config.update(json.loads(content))
 #             config.save()
+
+        # get the date and time
+        net.set_time()
 
         # send a start message
         ip = net.dns_lookup(mqtt_server)
@@ -146,7 +150,7 @@ try:
                     "utc": "{}-{:02d}-{:02d}T{:02d}:{:02d}:{:02d}".format(t[0], t[1], t[2], t[3], t[4], t[5]),
             }
             net.send_mqtt(ip, topic, msg)
-    
+
     net.disable()
 
     if debug:
@@ -157,14 +161,17 @@ try:
     env_data = []
 
     while True:
+        # default temp and humidity is case the env sensor is not present, required for the aqi sensor
+        temp = 25
+        humidity = 101300
 
         if env._device_present:
             if debug:
-                print("taking an env sample")
+                print("taking an THP sample")
 
             temp, pressure, humidity = env.values() # read all data from the sensor
             t = time.gmtime()
-            
+
             data = {
                 "t": temp,
                 "p": pressure,
@@ -172,33 +179,33 @@ try:
                 "utc": "{}-{:02d}-{:02d}T{:02d}:{:02d}:{:02d}".format(t[0], t[1], t[2], t[3], t[4], t[5]),
                 "i": env_count
             }
-            
+
             env_data.append(data)
             if debug: print(f"env: {data}")
 
         env_count += 1
         total_count += 1
-        
+
         if env_count >= config.getVal('sample_count'):
             env_count = 0
             tvoc = {}
-            
-            if air._device_present:                
+
+            if air._device_present:
                 if debug: print("Wait for sensor to be ready...")
                 air.wakeup()
-                
+
                 time.sleep(config.getVal('tvoc_wait') * 60)
-                
+
                 if debug:
                     print("taking a tvoc sample")
-            
+
                 air.temperature = temp
                 air.humidity    = humidity
-                
+
                 tvoc = air.tvoc
                 eco2 = air.eco2
                 aqi  = air.aqi
-                t    = time.gmtime() # get time again as we had to wait for the heater, to heat up
+                t    = time.gmtime() # get time again as we had to wait for the heater to heat up
 
                 if debug:
                     print("deepsleep air")
@@ -228,16 +235,21 @@ try:
                 print(msg)
 
             topic = f"{mqtt_base_topic}/data"
-    
-            # TODO: If we don't succeed try again
-            if net.enable():
-                ip = net.dns_lookup(mqtt_server)
-                msg["rssi"] = net.rssi()
-                if ip:
-                    net.send_mqtt(ip, topic, msg)
-     
+
+            retry = 3
+            while retry:
+                if net.enable():
+                    ip = net.dns_lookup(mqtt_server)
+                    msg["rssi"] = net.rssi()
+                    if ip:
+                        if net.send_mqtt(ip, topic, msg):
+                            break
+                retry -= 1
+                net.disable()
+                time.sleep(60)
+
             net.disable()
-            
+
             env_data = []
             tvoc     = {}
 
@@ -263,9 +275,9 @@ except Exception as e:
         }
         if debug:
             print(msg)
-        
+
         topic = f"{mqtt_base_topic}/exception"
-        
+
         net.disable()
         if net.enable():
             ip = net.dns_lookup(mqtt_server)

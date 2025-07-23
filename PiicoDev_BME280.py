@@ -10,7 +10,7 @@ compat_str = '\nUnified PiicoDev library out of date.  Get the latest module: ht
 class PiicoDev_BME280:
 
     _device_present = True
-    
+
     def __init__(self, bus=None, freq=None, sda=None, scl=None, t_mode=2, p_mode=5, h_mode=1, iir=1, address=0x77):
         try:
             if compat_ind >= 1:
@@ -29,11 +29,11 @@ class PiicoDev_BME280:
         self._t_fine = 0
         try:
             self._T1 = self._read16(0x88)
-        except Exception as e:
+        except Exception:
             print(i2c_err_str.format(self.addr))
             self._device_present = False
             return
-        
+
         self._T2 = self._short(self._read16(0x8A))
         self._T3 = self._short(self._read16(0x8C))
         self._P1 = self._read16(0x8E)
@@ -59,7 +59,7 @@ class PiicoDev_BME280:
         self._write8(0xF4, 0x24)
         sleep_ms(2)
         self._write8(0xF5, self.iir<<2)
-        
+
     def _read8(self, reg):
         if not self._device_present:
             return 0

@@ -1,23 +1,22 @@
 
-Add Alarm (i.e. send when temp above/below) possibly changing sample rate as well
+Add Alarm (i.e. send when temp above/below) possibly changing the sample rate as well
 
-Add datalogging for when the network is unavailable - sent data latter when it is (may require a RTC for time stamps)
+Add datalogging for when the network is unavailable - sent data latter when it is (may require an RTC for time stamps)
 
 Deepsleep - data may be able to be retained by saving the RTC memory (machine.RTC.memory())
 ~~~
 import machine
 import ujson
 rtc = machine.RTC()
-d = {1:'one', 2:'two'}  # Example data to save
+d = {1:'one', 2:'two'} # Example data to save
 rtc.memory(ujson.dumps(d))  # Save in RTC RAM
 
 r = ujson.loads(rtc.memory())  # Restore from RTC RAM
 # r == {2: 'two', 1: 'one'}
 ~~~
 
-std watchdog timout is 8secs - so we need to either make sure that we can update the timer, or create a second timer
+std watchdog timout is 8secs - so we need to either make sure that we can update the timer or create a second timer
 
 add SSL
 add Firmware update OTA
 change credentials from mimos
-

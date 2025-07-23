@@ -1,5 +1,5 @@
 The display os optional
-The firmware will detect the display on initialisation, and if not present will bypass the display routines
+The firmware will detect the display on initialisation, and if not present, will bypass the display routines
 
 Firmware upgrades are initiated by restarting the device
 The watchdog timer (if expired) will also trigger a firmware update on restart
@@ -20,13 +20,11 @@ The NB-IoT libray makes use of the sendCMD() method
 This method in turm uses the
 
 The SIM7020e comes with a default configuration that includes echo (ATE1)
-however after a factory-reset (AT&F) the configuration is different to shipping defaults
+however, after a factory-reset (AT&F) the configuration is different to shipping defaults,
 for example, echo is disabled
 
-The +CPIN unsolicited message cones after the initial AT command
-if you wait for CPIN before sendind AT it will never come
+The +CPIN unsolicited message comes after the initial AT command
+if you wait for CPIN before sending AT, it will never come. 
 An AT command must first be sent, then the +CPIN message is sent
 
 DNS also sends an unsolicited message
-
-
