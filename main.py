@@ -17,15 +17,14 @@ import io
 
 def wait_for_startup_interrupt():
     count = 5
-    if debug: print(f"Wait for user interrupt ({count}) secs")
+    print(f"Wait for user interrupt ({count}) secs")
     while count:
         sleep_ms(1000)
         count -= 1
 
 
 async def wdt_task():
-    if debug: print('WDT task started')
-
+    print('WDT task started')
     interval = 1000
     wdt    = machine.WDT(timeout = 8388) # Start the watchdog 8.388 seconds
 
@@ -57,8 +56,8 @@ rails_server = "accelerate-advantage-b6d76071507e.herokuapp.com"
 
 rc = machine.reset_cause()
 rc_reason = "unknown"
-if debug:
-    print(f"Reset Code: {rc}")
+
+print(f"Reset Code: {rc}")
 
 try:
     # This is all about displaying the reason for a restart
@@ -68,49 +67,41 @@ try:
 #   DEEPESLEEP_RESET is not defined
 #   if rc == machine.DEEPSLEEP_RESET:
 #       rc_reason = "DeepSleepReset"
-#       if debug:
-#         print("DeepSleep Reset")
+#       print("DeepSleep Reset")
 
 #   HARD_RESET is not defined
 #   if rc == machine.HARD_RESET:
 #       rc_reason = "HardReset"
-#       if debug:
-#           print("Hard Reset")
+#       print("Hard Reset")
 
 #   SOFT_RESET is not defined
 #   elif rc == machine.SOFT_RESET:
 #       rc_reason = "SoftReset"
+#       print("Soft Reset")
 #       if debug:
-#           print("Soft Reset")
-#           # allow time for a developer to stop the process for debugging
-#           # before starting the watchdog
 #           wait_for_startup_interrupt()
 
     if rc == machine.PWRON_RESET:
         rc_reason = "PowerOn"
-        # allow time for a developer to stop the process for debugging
-        # before starting the watchdog
+        print("POWER_ON reset")
         if debug:
-            print("POWER_ON reset")
-            wait_for_startup_interrupt()
-            net.factory_reset()
-            net.disable()
-            time.sleep(3)
+            wait_for_startup_interrupt() 
+        net.factory_reset()
+        net.disable()
+        time.sleep(3)
 
     #     if ota_update.update_available():
-    #         if debug: print('OTA Update available')
+    #         print('OTA Update available')
     #         ota_update.pull_all()
-    #         if debug: print('OTA Update Completed')
+    #         print('OTA Update Completed')
     #     else:
-    #         if debug: print('No OTA update')
+    #         print('No OTA update')
 
 
     elif rc == machine.WDT_RESET:
         rc_reason = "WatchDog"
-        # allow time for a developer to stop the process for debugging
-        # before starting the watchdog
-        if debug:
-            print("Watchdog Reset")
+        print("Watchdog Reset")
+        if debug:    
             wait_for_startup_interrupt()
         # send wdt packet to server
         # attempt a firmware update
@@ -153,8 +144,8 @@ try:
 
     net.disable()
 
-    if debug:
-        print("Polling task started")
+
+    print("Polling task started")
 
     total_count = 0
     env_count = 0
@@ -166,8 +157,7 @@ try:
         humidity = 101300
 
         if env._device_present:
-            if debug:
-                print("taking an THP sample")
+            print("taking an THP sample")
 
             temp, pressure, humidity = env.values() # read all data from the sensor
             t = time.gmtime()
@@ -181,7 +171,7 @@ try:
             }
 
             env_data.append(data)
-            if debug: print(f"env: {data}")
+            print(f"env: {data}")
 
         env_count += 1
         total_count += 1
@@ -191,13 +181,12 @@ try:
             tvoc = {}
 
             if air._device_present:
-                if debug: print("Wait for sensor to be ready...")
+                print("Wait for sensor to be ready...")
                 air.wakeup()
 
                 time.sleep(config.getVal('tvoc_wait') * 60)
 
-                if debug:
-                    print("taking a tvoc sample")
+                print("taking a tvoc sample")
 
                 air.temperature = temp
                 air.humidity    = humidity
@@ -207,9 +196,7 @@ try:
                 aqi  = air.aqi
                 t    = time.gmtime() # get time again as we had to wait for the heater to heat up
 
-                if debug:
-                    print("deepsleep air")
-
+                print("deepsleep air")
                 air.deepsleep()
 
                 tvoc = {
@@ -219,8 +206,7 @@ try:
                     "utc": "{}-{:02d}-{:02d}T{:02d}:{:02d}:{:02d}".format(t[0], t[1], t[2], t[3], t[4], t[5])
                 }
 
-            if debug:
-                print("Build message")
+            print("Build message")
 
             t = time.gmtime()
             msg = {
@@ -231,8 +217,6 @@ try:
                 "t": tvoc,
                 "utc": "{}-{:02d}-{:02d}T{:02d}:{:02d}:{:02d}".format(t[0], t[1], t[2], t[3], t[4], t[5])
             }
-            if debug:
-                print(msg)
 
             topic = f"{mqtt_base_topic}/data"
 
@@ -253,8 +237,7 @@ try:
             env_data = []
             tvoc     = {}
 
-        if debug:
-            print(f"sleeping for next sample. count: {total_count}")
+        print(f"sleeping for next sample. count: {total_count}")
 
         time.sleep(config.getVal('sample_interval') * 60)
 
@@ -273,8 +256,6 @@ except Exception as e:
             "tb": traceback_array,
             "utc": "{}-{:02d}-{:02d}T{:02d}:{:02d}:{:02d}".format(t[0], t[1], t[2], t[3], t[4], t[5]),
         }
-        if debug:
-            print(msg)
 
         topic = f"{mqtt_base_topic}/exception"
 

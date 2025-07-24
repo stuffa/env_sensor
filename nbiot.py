@@ -75,20 +75,20 @@ class NBIoT:
             return False
 
         try:
-            # Get the signal strength
-            print("Get Signal strength...")
-            resp = self.send_cmd("AT+CSQ", "Get Signal Strength")
-            data = self.parse_for("+CSQ:", resp)
-            if data:
-                ss, _other = data.split(",")
-                print(f"Signal Strength: {ss}")
-            else:
-                print ("ERROR: no data")
-                return False
+#             # Get the signal strength
+#             print("Get Signal strength...")
+#             resp = self.send_cmd("AT+CSQ", "Get Signal Strength")
+#             data = self.parse_for("+CSQ:", resp)
+#             if data:
+#                 ss, _other = data.split(",")
+#                 print(f"Signal Strength: {ss}")
+#             else:
+#                 print ("ERROR: no data")
+#                 return False
 
             # Wait for PDP to be activated
             print("Wait for PDP activation...")
-            retry = 10
+            retry = 30
             while retry:
                 # AT+CGACT PDP Context Activate or Deactivate
                 resp = self.send_cmd("AT+CGACT?", comment="Get the PDP activated state")
@@ -153,6 +153,9 @@ class NBIoT:
 
         mqtt_delay = 1
         retry_cnt = 10
+        
+        print(f"msg: {json_message}")
+        print(f"topic: {topic}")
 
         while retry_cnt:
             mqtt_id = None
@@ -160,13 +163,12 @@ class NBIoT:
             try:
                 # Create a new connection
                 resp = self.send_cmd(f'AT+CMQNEW="{server}",{port},12000,1024', comment="Create an MQTT client")
-                result = self.parse_for("+CMQNEW:", resp)
-                if result:
-                    mqtt_id = self.parse_for("+CMQNEW:", resp)
-                    print (f"mqtt_id: {mqtt_id}")
-                else:
+                mqtt_id = self.parse_for("+CMQNEW:", resp)
+                if not mqtt_id:
                     self.disconnect_mqtt(mqtt_id)
                     continue
+
+                print (f"mqtt_id: {mqtt_id}")
 
                 time.sleep(mqtt_delay)
 
@@ -462,7 +464,7 @@ class NBIoT:
 
     # Waits for an unsolicited message
     # returns the value to the right of the prefix: (stripped)
-    def wait_for(self, prefix, attempts=30):
+    def wait_for(self, prefix, attempts=15):
         print(f"Wait until chip responds with {prefix}")
         while attempts:
             status, data = self.read_uart()
@@ -473,7 +475,7 @@ class NBIoT:
                         print(f"Found: {prefix}")
                         offset = len(prefix)
                         return line[offset:].strip()
-            attempts -=1
+            attempts -= 1
         return None
 
 
@@ -560,11 +562,11 @@ if __name__ == "__main__":
     print("Wait 5 secs to allow the chip to stablise")
     time.sleep(3)
 
-
     print("##### Get Time #####")
     if nbiot.enable():
         nbiot.set_time()
-
+    else:
+        nbiot.check_settings()
     nbiot.disable()
     sys.exit(-1)
 
@@ -586,6 +588,7 @@ if __name__ == "__main__":
 
     print("##### Enable #####")
     if not nbiot.enable():
+        nbiot.check_settings()
         nbiot.disable()
         sys.exit(-2)
 
